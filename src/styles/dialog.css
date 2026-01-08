@@ -1,0 +1,190 @@
+/* Dialog Overlay */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Dialog */
+.control-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 450px;
+  max-width: 550px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.control-dialog h2 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Dialog Fields */
+.dialog-field {
+  margin-bottom: 16px;
+}
+
+.dialog-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.dialog-hint {
+  font-weight: normal;
+  color: var(--text-hint);
+  font-size: 11px;
+}
+
+.dialog-field input,
+.dialog-field select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.dialog-field input:focus,
+.dialog-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dialog-field input:disabled,
+.dialog-field select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Field Row (for multi-column layouts) */
+.dialog-field-row {
+  display: flex;
+  gap: 12px;
+}
+
+.dialog-field-row .dialog-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.dialog-field-row input {
+  flex: 1;
+}
+
+/* Dropdown Options Editor */
+.dropdown-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dropdown-option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dropdown-option-row input {
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.dropdown-option-row .opt-value {
+  flex: 0.8;
+}
+
+.dropdown-option-row .opt-label {
+  flex: 1.2;
+}
+
+.remove-option {
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.remove-option:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+/* Dialog Actions */
+.dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.dialog-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* Dialog Buttons */
+.dialog-btn-primary,
+.dialog-btn-secondary,
+.dialog-btn-danger {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dialog-btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+}
+
+.dialog-btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.dialog-btn-secondary {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.dialog-btn-secondary:hover {
+  border-color: var(--accent);
+}
+
+.dialog-btn-danger {
+  background: none;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.dialog-btn-danger:hover {
+  background: var(--danger);
+  color: white;
+}
