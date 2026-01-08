@@ -97,7 +97,9 @@
   font-size: 10px;
   color: var(--text-hint);
   white-space: nowrap;
-  min-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 
 /* Base Control Styles */

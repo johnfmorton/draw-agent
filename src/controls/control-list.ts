@@ -52,7 +52,11 @@ export function renderControlList(
     // File default hint
     const hint = document.createElement('span');
     hint.className = 'control-hint';
-    hint.textContent = isDirty ? `file: ${formatValue(fileDefault)}` : '';
+    if (isDirty) {
+      const hintText = `default: ${formatValue(fileDefault)}`;
+      hint.textContent = hintText;
+      hint.title = hintText;
+    }
 
     row.append(label, controlEl, resetBtn, hint);
     list.appendChild(row);
