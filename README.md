@@ -10,6 +10,7 @@ A web-based coding playground for creating generative art with pen plotters like
 - **Shareable URLs** — Every parameter state is encoded in the URL for easy bookmarking and sharing
 - **Seeded Randomness** — Reproducible random generation ensures the same seed always produces the same artwork
 - **Hot Module Reloading** — Edit your TypeScript files and see changes without losing your parameter tweaks
+- **SVG.js Integration** — Optional chainable API for cleaner SVG generation (or use raw DOM)
 
 ## Getting Started
 
@@ -41,6 +42,7 @@ Artwork files live in the `art/` directory. Each file exports a few things:
 // art/my-artwork.ts
 import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
 import { createRandom } from '../src/random';
+import { createCanvas } from '../src/svg-utils';
 
 // Metadata (optional)
 export const meta = {
@@ -70,18 +72,71 @@ export function draw(values: Values, canvas: CanvasConfig): SVGElement {
   const { lineCount, seed, filled } = values;
   const random = createRandom(seed);  // Always use seeded random!
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', `${canvas.width}${canvas.unit}`);
-  svg.setAttribute('height', `${canvas.height}${canvas.unit}`);
-  svg.setAttribute('viewBox', `0 0 ${canvas.width} ${canvas.height}`);
+  // Create canvas with SVG.js
+  const { svg, draw } = createCanvas(canvas);
 
-  // Draw your artwork...
+  // Use SVG.js chainable API
+  for (let i = 0; i < lineCount; i++) {
+    draw.circle(random() * 50)
+      .cx(random() * canvas.width)
+      .cy(random() * canvas.height)
+      .fill(filled ? 'black' : 'none')
+      .stroke({ color: 'black', width: 0.5 });
+  }
 
   return svg;
 }
 ```
 
-See the `art/` folder for complete examples: `spiral-study.ts`, `grid-pattern.ts`, and `flow-field.ts`.
+See the `art/` folder for complete examples:
+- `grid-pattern.ts` and `flow-field.ts` — use **SVG.js** for cleaner code
+- `spiral-study.ts` — uses **raw DOM** as an alternative approach
+
+## SVG.js vs Raw DOM
+
+You can choose between two approaches for generating SVG:
+
+### SVG.js (Recommended)
+
+```typescript
+import { createCanvas } from '../src/svg-utils';
+
+export function draw(values: Values, canvas: CanvasConfig): SVGElement {
+  const { svg, draw } = createCanvas(canvas);
+
+  // Chainable, readable API
+  draw.circle(100).cx(50).cy(50).fill('none').stroke({ color: '#000', width: 0.5 });
+  draw.line(0, 0, 100, 100).stroke('black');
+  draw.path('M 0 0 L 50 50 Q 100 0 100 50').fill('none').stroke('black');
+
+  // Groups for shared styles
+  const group = draw.group().stroke({ color: 'red', width: 2 }).fill('none');
+  group.rect(50, 50).move(10, 10);
+  group.rect(50, 50).move(70, 70);
+
+  return svg;
+}
+```
+
+### Raw DOM (No Dependencies)
+
+```typescript
+import { createRawCanvas } from '../src/svg-utils';
+
+export function draw(values: Values, canvas: CanvasConfig): SVGElement {
+  const svg = createRawCanvas(canvas);
+
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', '50');
+  circle.setAttribute('cy', '50');
+  circle.setAttribute('r', '100');
+  circle.setAttribute('fill', 'none');
+  circle.setAttribute('stroke', '#000');
+  svg.appendChild(circle);
+
+  return svg;
+}
+```
 
 ## Control Types
 
@@ -167,6 +222,7 @@ draw-agent/
 ├── src/
 │   ├── main.ts           # App entry point
 │   ├── random.ts         # Seeded PRNG
+│   ├── svg-utils.ts      # SVG.js helpers (createCanvas, createRawCanvas)
 │   ├── controls/         # Control system
 │   └── styles/           # CSS
 ├── index.html

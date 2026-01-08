@@ -2,11 +2,15 @@
  * Spiral Study
  * A classic Archimedean spiral with configurable parameters.
  * Demonstrates: slider, toggle, dropdown, seed, point2d controls.
+ *
+ * This artwork uses raw DOM APIs (no SVG.js) to demonstrate the vanilla approach.
+ * See grid-pattern.ts and flow-field.ts for SVG.js examples.
  */
 
 import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
+import { createRawCanvas } from '../src/svg-utils';
 
 export const meta = {
   title: 'Spiral Study',
@@ -82,10 +86,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const centerX = width / 2;
   const centerY = height / 2;
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  // Create SVG using raw DOM helper (alternative to SVG.js)
+  const svg = createRawCanvas(canvasConfig);
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.setAttribute('width', `${canvasConfig.width}${canvasConfig.unit}`);
-  svg.setAttribute('height', `${canvasConfig.height}${canvasConfig.unit}`);
 
   // Build spiral path
   const points: { x: number; y: number }[] = [];

@@ -2,11 +2,14 @@
  * Flow Field
  * Particles following a noise-based vector field.
  * Demonstrates: slider, toggle, numeric, seed, vector controls.
+ *
+ * This artwork uses SVG.js for cleaner element creation.
  */
 
 import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
+import { createCanvas } from '../src/svg-utils';
 
 export const meta = {
   title: 'Flow Field',
@@ -171,23 +174,20 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { width, height } = canvasToPixels(canvasConfig);
   const angleOffsetRad = (angleOffset * Math.PI) / 180;
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.setAttribute('width', `${canvasConfig.width}${canvasConfig.unit}`);
-  svg.setAttribute('height', `${canvasConfig.height}${canvasConfig.unit}`);
+  // Create canvas with SVG.js
+  const { svg, draw } = createCanvas(canvasConfig);
+  draw.viewbox(0, 0, width, height);
 
-  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  group.setAttribute('stroke', 'black');
-  group.setAttribute('stroke-width', String(lineWidth));
-  group.setAttribute('stroke-opacity', String(opacity));
-  group.setAttribute('fill', 'none');
-  group.setAttribute('stroke-linecap', 'round');
+  // Create group for all particle paths
+  const group = draw.group()
+    .stroke({ color: 'black', width: lineWidth, opacity, linecap: 'round' })
+    .fill('none');
 
   // Generate particle paths
   for (let i = 0; i < particles; i++) {
     let x = random() * width;
     let y = random() * height;
-    const points: { x: number; y: number }[] = [{ x, y }];
+    const points: [number, number][] = [[x, y]];
 
     for (let s = 0; s < steps; s++) {
       const angle =
@@ -206,20 +206,14 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         if (x < 0 || x > width || y < 0 || y > height) break;
       }
 
-      points.push({ x, y });
+      points.push([x, y]);
     }
 
     if (points.length > 1) {
-      const pathData = points
-        .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-        .join(' ');
-
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', pathData);
-      group.appendChild(path);
+      // Build path using SVG.js polyline
+      group.polyline(points);
     }
   }
 
-  svg.appendChild(group);
   return svg;
 }

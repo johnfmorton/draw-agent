@@ -7,6 +7,7 @@ A web-based coding playground for generative art created with an AxiDraw pen plo
 - **Vite** for dev server, HMR, and bundling
 - **TypeScript** for all code (no JavaScript)
 - **Vanilla HTML/CSS** for UI (no framework)
+- **SVG.js** for optional chainable SVG generation (artists can also use raw DOM)
 - **localStorage** for working state persistence
 - **File System** via Vite plugin for optional save-to-file
 
@@ -26,6 +27,7 @@ draw-agent/
 │   ├── main.ts                 # Entry point, app orchestration
 │   ├── artwork-loader.ts       # Dynamic import of art/*.ts files
 │   ├── random.ts               # Seeded PRNG (Mulberry32)
+│   ├── svg-utils.ts            # SVG.js helpers (createCanvas, createRawCanvas)
 │   ├── vite-env.d.ts           # Vite type declarations
 │   ├── controls/
 │   │   ├── schema.ts           # Control & canvas type definitions
@@ -105,16 +107,50 @@ const PIXELS_PER_UNIT = {
 - Preset dropdown (US Letter, A4, A3, Square 8")
 - Reset button to restore file defaults
 
-**In the draw function**, use the canvas parameter:
+**In the draw function**, use the canvas parameter (see SVG Generation below).
+
+### SVG Generation
+
+Artists can choose between **SVG.js** (recommended) or **raw DOM** for creating SVG elements.
+
+**SVG.js** — Chainable API, cleaner code:
 ```typescript
+import { createCanvas } from '../src/svg-utils';
+
 export function draw(values: Values, canvas: CanvasConfig): SVGElement {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', `${canvas.width}${canvas.unit}`);
-  svg.setAttribute('height', `${canvas.height}${canvas.unit}`);
-  svg.setAttribute('viewBox', `0 0 ${canvas.width} ${canvas.height}`);
-  // ...
+  const { svg, draw } = createCanvas(canvas);
+
+  // Chainable methods
+  draw.circle(50).cx(100).cy(100).fill('none').stroke({ color: '#000', width: 0.5 });
+  draw.line(0, 0, 100, 100).stroke('black');
+
+  // Groups for shared styles
+  const g = draw.group().stroke({ color: 'black', width: 1 }).fill('none');
+  g.rect(50, 50).move(10, 10);
+  g.rect(50, 50).move(70, 70);
+
+  return svg;
 }
 ```
+
+**Raw DOM** — No dependencies, maximum control:
+```typescript
+import { createRawCanvas } from '../src/svg-utils';
+
+export function draw(values: Values, canvas: CanvasConfig): SVGElement {
+  const svg = createRawCanvas(canvas);
+
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', '100');
+  circle.setAttribute('cy', '100');
+  circle.setAttribute('r', '50');
+  svg.appendChild(circle);
+
+  return svg;
+}
+```
+
+See `grid-pattern.ts` and `flow-field.ts` for SVG.js examples, `spiral-study.ts` for raw DOM.
 
 ### Control Types
 
