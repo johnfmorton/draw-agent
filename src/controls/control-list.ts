@@ -49,16 +49,7 @@ export function renderControlList(
     resetBtn.type = 'button';
     resetBtn.addEventListener('click', () => onReset(control.id));
 
-    // File default hint
-    const hint = document.createElement('span');
-    hint.className = 'control-hint';
-    if (isDirty) {
-      const hintText = `default: ${formatValue(fileDefault)}`;
-      hint.textContent = hintText;
-      hint.title = hintText;
-    }
-
-    row.append(label, controlEl, resetBtn, hint);
+    row.append(label, controlEl, resetBtn);
     list.appendChild(row);
   }
 

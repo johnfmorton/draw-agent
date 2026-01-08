@@ -37,7 +37,7 @@
 /* Control Row */
 .control-row {
   display: grid;
-  grid-template-columns: 100px 1fr auto auto;
+  grid-template-columns: 100px 1fr auto;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
@@ -90,16 +90,6 @@
   color: var(--accent);
   background: none;
   border: none;
-}
-
-/* Control Hint */
-.control-hint {
-  font-size: 10px;
-  color: var(--text-hint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 80px;
 }
 
 /* Base Control Styles */
