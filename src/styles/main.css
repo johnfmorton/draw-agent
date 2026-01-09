@@ -156,6 +156,25 @@ select:focus {
   color: var(--danger);
 }
 
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+}
+
+.error-detail {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 /* Canvas Controls */
 .canvas-controls {
   display: flex;

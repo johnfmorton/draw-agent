@@ -23,6 +23,7 @@ export function renderControlList(
 
     const row = document.createElement('div');
     row.className = `control-row ${isDirty ? 'is-dirty' : ''}`;
+    row.dataset.controlId = control.id;
 
     // Label (clickable to edit)
     const label = document.createElement('label');

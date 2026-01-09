@@ -8,6 +8,8 @@ import {
 } from './artwork-loader';
 import {
   getDefaults,
+  deepEqual,
+  formatValue,
   type CanvasConfig,
   DEFAULT_CANVAS,
   canvasToPixels,
@@ -145,8 +147,60 @@ async function selectArtwork(path: string) {
     renderPreview();
   } catch (e) {
     console.error('Failed to load artwork:', e);
-    previewEl.innerHTML = `<p class="error">Failed to load artwork: ${e}</p>`;
+    showLoadError(path);
   }
+}
+
+/**
+ * Show an error state with recovery options when artwork loading fails.
+ */
+function showLoadError(failedPath: string) {
+  const failedName = getArtworkName(failedPath);
+  const artworks = getAvailableArtworks().filter((a) => a.path !== failedPath);
+
+  // Build error UI
+  const errorContainer = document.createElement('div');
+  errorContainer.className = 'error-container';
+
+  const errorMsg = document.createElement('p');
+  errorMsg.className = 'error';
+  errorMsg.textContent = `Failed to load artwork "${failedName}"`;
+  errorContainer.appendChild(errorMsg);
+
+  const errorDetail = document.createElement('p');
+  errorDetail.className = 'error-detail';
+  errorDetail.textContent = 'The file may have been moved or deleted.';
+  errorContainer.appendChild(errorDetail);
+
+  const actions = document.createElement('div');
+  actions.className = 'error-actions';
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.textContent = 'Reload App';
+  reloadBtn.addEventListener('click', () => window.location.reload());
+  actions.appendChild(reloadBtn);
+
+  // If other artworks exist, offer to load one
+  if (artworks.length > 0) {
+    const loadOtherBtn = document.createElement('button');
+    loadOtherBtn.textContent = `Load "${artworks[0].name}"`;
+    loadOtherBtn.addEventListener('click', () => {
+      // Clear the failed artwork from URL and localStorage
+      clearWorkingValues(failedName);
+      clearWorkingCanvas(failedName);
+      window.location.hash = '';
+      selectArtwork(artworks[0].path);
+    });
+    actions.appendChild(loadOtherBtn);
+  }
+
+  errorContainer.appendChild(actions);
+  previewEl.innerHTML = '';
+  previewEl.appendChild(errorContainer);
+
+  // Clear the control list since we have no valid artwork
+  controlListEl.innerHTML = '';
+  canvasControlsEl.innerHTML = '';
 }
 
 /**
@@ -159,9 +213,29 @@ function handleValueChange(id: string, value: unknown) {
   saveWorkingValues(currentArtworkName, currentValues);
   updateUrlFromState();
 
-  // Re-render
-  renderControls();
+  // Update dirty state in place (don't re-render to preserve drag state)
+  updateDirtyState(id);
   renderPreview();
+}
+
+/**
+ * Update dirty state for a specific control row without re-rendering.
+ */
+function updateDirtyState(id: string) {
+  const row = controlListEl.querySelector(`[data-control-id="${id}"]`);
+  if (!row) return;
+
+  const fileDefault = fileDefaults[id];
+  const value = currentValues[id];
+  const isDirty = fileDefault !== undefined && !deepEqual(value, fileDefault);
+
+  row.classList.toggle('is-dirty', isDirty);
+
+  // Update reset button tooltip
+  const resetBtn = row.querySelector('.control-reset') as HTMLButtonElement | null;
+  if (resetBtn) {
+    resetBtn.title = `Reset to ${formatValue(fileDefault)}`;
+  }
 }
 
 /**

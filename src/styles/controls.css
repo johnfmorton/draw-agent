@@ -106,11 +106,17 @@
 
 .control-slider input[type='range'] {
   flex: 1;
+  height: 20px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.control-slider input[type='range']::-webkit-slider-runnable-track {
   height: 4px;
   background: var(--border);
   border-radius: 2px;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 .control-slider input[type='range']::-webkit-slider-thumb {
@@ -121,9 +127,31 @@
   border-radius: 50%;
   cursor: pointer;
   transition: transform 0.1s;
+  margin-top: -5px;
 }
 
 .control-slider input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Firefox */
+.control-slider input[type='range']::-moz-range-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.control-slider input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.control-slider input[type='range']::-moz-range-thumb:hover {
   transform: scale(1.2);
 }
 
