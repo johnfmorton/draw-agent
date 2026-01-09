@@ -78,12 +78,6 @@ export const controls = [
     default: 0.4,
   },
   {
-    type: 'toggle',
-    id: 'wrap',
-    label: 'Wrap Edges',
-    default: false,
-  },
-  {
     type: 'numeric',
     id: 'angleOffset',
     label: 'Angle Offset',
@@ -163,7 +157,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     noiseScale,
     lineWidth,
     opacity,
-    wrap,
     angleOffset,
     flowBias,
     seed,
@@ -196,15 +189,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       x += Math.cos(angle) * stepLength + flowBias.x * 0.1;
       y += Math.sin(angle) * stepLength + flowBias.y * 0.1;
 
-      // Handle edges
-      if (wrap) {
-        if (x < 0) x += width;
-        if (x > width) x -= width;
-        if (y < 0) y += height;
-        if (y > height) y -= height;
-      } else {
-        if (x < 0 || x > width || y < 0 || y > height) break;
-      }
+      // Stop at edges
+      if (x < 0 || x > width || y < 0 || y > height) break;
 
       points.push([x, y]);
     }
