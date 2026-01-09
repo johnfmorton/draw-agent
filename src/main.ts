@@ -34,6 +34,7 @@ import {
   saveWorkingCanvas,
   clearWorkingCanvas,
 } from './sync/local-storage';
+import { exportSVG, openExportDialog } from './export/svg-export';
 
 // App state
 let currentArtwork: ArtworkModule | null = null;
@@ -51,6 +52,7 @@ const artworkSelectorEl = document.getElementById('artwork-selector')!;
 const headerActionsEl = document.getElementById('header-actions')!;
 const resetBtn = document.getElementById('reset-btn')!;
 const copyUrlBtn = document.getElementById('copy-url-btn')!;
+const exportSvgBtn = document.getElementById('export-svg-btn')!;
 const addControlBtn = document.getElementById('add-control-btn')!;
 const exportControlsBtn = document.getElementById('export-controls-btn')!;
 
@@ -90,6 +92,7 @@ async function init() {
   // Set up event listeners
   resetBtn.addEventListener('click', handleResetAll);
   copyUrlBtn.addEventListener('click', handleCopyUrl);
+  exportSvgBtn.addEventListener('click', handleExportSvg);
   addControlBtn.addEventListener('click', handleAddControl);
   exportControlsBtn.addEventListener('click', handleExportControls);
 
@@ -309,6 +312,28 @@ async function handleCopyUrl() {
   } catch (e) {
     console.error('Failed to copy URL:', e);
   }
+}
+
+/**
+ * Handle exporting SVG for AxiDraw.
+ */
+async function handleExportSvg() {
+  const svg = previewEl.querySelector('svg') as SVGSVGElement | null;
+  if (!svg) {
+    console.error('No SVG to export');
+    return;
+  }
+
+  const result = await openExportDialog(currentArtworkName);
+  if (!result) return;
+
+  exportSVG(svg, currentCanvas, result.filename, result.options);
+
+  // Visual feedback
+  exportSvgBtn.textContent = 'Exported!';
+  setTimeout(() => {
+    exportSvgBtn.textContent = 'Export SVG';
+  }, 2000);
 }
 
 /**
