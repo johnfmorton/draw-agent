@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "new": "tsx scripts/new-artwork.ts"
   },
   "devDependencies": {
+    "@inquirer/prompts": "^8.1.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vite": "^6.4.1"
   },
