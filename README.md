@@ -92,6 +92,92 @@ See the `art/` folder for complete examples:
 - `grid-pattern.ts` and `flow-field.ts` — use **SVG.js** for cleaner code
 - `spiral-study.ts` — uses **raw DOM** as an alternative approach
 
+## Generative Utils Library
+
+This project includes [`@johnfmorton/generative-utils`](https://github.com/johnfmorton/generative-utils), a collection of utility functions designed for generative art. The library provides seeded randomness, curves, vector math, spatial sampling, and more.
+
+### Example Artworks
+
+Seven example artworks demonstrate how to use the generative-utils functions. Each example focuses on a specific category of utilities:
+
+| Artwork | Functions Demonstrated |
+|---------|------------------------|
+| `gu-random-study.ts` | `seedPRNG`, `random`, `randomBias`, `randomSnap` — Compare uniform, biased, and snapped random distributions |
+| `gu-value-mapping.ts` | `map`, `lerp`, `clamp` — Smooth transitions and value interpolation |
+| `gu-shapes.ts` | `polygon`, `star`, `pointsToPath`, `distToSegment` — Regular polygons, stars, and distance calculations |
+| `gu-spatial.ts` | `poissonDisc` — Evenly-distributed point sampling with organic mesh connections |
+| `gu-spline-paths.ts` | `spline`, `pointsInPath`, `pointsToPath` — Smooth Catmull-Rom curves and path point extraction |
+| `gu-vectors.ts` | `vec2.*` (22 functions) — Vector math with particle physics visualization |
+| `gu-grids.ts` | `createNoiseGrid`, `createQtGrid`, `createVoronoiDiagram` — Procedural grids and Voronoi tessellation |
+
+### Using Generative Utils
+
+Import functions directly from the library:
+
+```typescript
+import { seedPRNG, random, spline, map, vec2 } from '@johnfmorton/generative-utils';
+
+export function draw(values: Values, canvas: CanvasConfig): SVGElement {
+  // Seed the PRNG for reproducibility (use instead of createRandom)
+  seedPRNG(values.seed.toString());
+
+  // Generate random values
+  const x = random(0, 100);           // Uniform random
+  const y = randomBias(0, 100, 50, 0.7); // Biased toward 50
+
+  // Create smooth curves from points
+  const pathString = spline(points, 0.5, false);
+
+  // Vector math
+  const velocity = vec2.fromAngle(angle, speed);
+  const reflected = vec2.reflect(velocity, normal);
+
+  // ...
+}
+```
+
+> **Note**: When using generative-utils, call `seedPRNG(seed)` at the start of your draw function instead of `createRandom()`. Both approaches ensure reproducible randomness, but generative-utils functions use their own shared PRNG.
+
+### Function Reference
+
+**Random Generation**
+- `seedPRNG(seed)` — Seed the random number generator
+- `random(min, max)` or `random(array)` — Uniform random number or array pick
+- `randomBias(min, max, bias, influence)` — Random weighted toward a value
+- `randomSnap(min, max, snapInc)` — Random snapped to intervals
+
+**Value Mapping**
+- `map(n, inMin, inMax, outMin, outMax)` — Remap value between ranges
+- `lerp(a, b, t)` — Linear interpolation
+- `clamp(value, min, max)` — Constrain to range
+
+**Curves & Paths**
+- `spline(points, tension, close)` — Smooth Catmull-Rom spline as SVG path
+- `pointsInPath(svgPath, count)` — Extract points along an SVG path
+- `pointsToPath(points, close)` — Convert points to SVG path string
+
+**Shapes**
+- `polygon({sides, radius, cx, cy, rotation})` — Regular polygon vertices
+- `star({points, outerRadius, innerRadius, cx, cy, rotation})` — Star vertices
+
+**Spatial**
+- `poissonDisc({width, height, radius})` — Evenly-distributed points
+
+**Grids & Voronoi**
+- `createNoiseGrid({width, height, resolution, xInc, yInc})` — Simplex noise grid
+- `createQtGrid({width, height, points, maxQtLevels})` — Quadtree adaptive grid
+- `createVoronoiDiagram({width, height, points, relaxIterations})` — Voronoi cells
+
+**Vector Math (`vec2.*`)**
+- `create`, `add`, `subtract`, `multiply`, `divide`
+- `magnitude`, `normalize`, `distance`
+- `dot`, `cross`, `rotate`, `rotateAround`
+- `fromAngle`, `angle`, `angleBetween`
+- `perpendicular`, `reflect`, `limit`, `setMagnitude`, `vecLerp`
+
+**Distance**
+- `distToSegment(point, v, w)` — Distance from point to line segment
+
 ## SVG.js vs Raw DOM
 
 You can choose between two approaches for generating SVG:
