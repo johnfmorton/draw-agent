@@ -104,7 +104,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
   // Create canvas with SVG.js
   const { svg, draw } = createCanvas(canvasConfig);
-  draw.viewbox(0, 0, width, height);
 
   const cellWidth = (width - padding * 2) / cols;
   const cellHeight = (height - padding * 2) / rows;

@@ -169,7 +169,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
   // Create canvas with SVG.js
   const { svg, draw } = createCanvas(canvasConfig);
-  draw.viewbox(0, 0, width, height);
 
   // Create group for all particle paths
   const group = draw.group()

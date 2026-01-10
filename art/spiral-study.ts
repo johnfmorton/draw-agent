@@ -88,7 +88,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
   // Create SVG using raw DOM helper (alternative to SVG.js)
   const svg = createRawCanvas(canvasConfig);
-  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
   // Build spiral path
   const points: { x: number; y: number }[] = [];

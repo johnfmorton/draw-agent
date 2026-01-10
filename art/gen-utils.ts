@@ -116,7 +116,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
   const { width, height } = canvasToPixels(canvasConfig);
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
-  svgDraw.viewbox(0, 0, width, height);
 
   // Create group for all paths
   const group = svgDraw.group()

@@ -322,8 +322,7 @@ function generateFileContent(
     : "import { createRawCanvas } from '../src/svg-utils';";
 
   const svgSetup = useSvgJs
-    ? `  const { svg, draw } = createCanvas(canvasConfig);
-  draw.viewbox(0, 0, width, height);`
+    ? '  const { svg, draw } = createCanvas(canvasConfig);'
     : '  const svg = createRawCanvas(canvasConfig);';
 
   // Generate console.log with all control values (using destructured variables)
