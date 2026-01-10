@@ -91,7 +91,39 @@ body {
 #preview svg {
   display: block;
   max-width: 100%;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 180px);
+}
+
+/* Preview Wrapper */
+#preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Artwork Caption */
+#artwork-caption {
+  text-align: center;
+  max-width: 400px;
+}
+
+#artwork-caption:empty {
+  display: none;
+}
+
+.artwork-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.artwork-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 4px 0 0 0;
+  line-height: 1.4;
 }
 
 /* Control Pane */

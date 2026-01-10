@@ -47,6 +47,7 @@ let fileCanvas: CanvasConfig = { ...DEFAULT_CANVAS };
 
 // DOM elements
 const previewEl = document.getElementById('preview')!;
+const artworkCaptionEl = document.getElementById('artwork-caption')!;
 const controlListEl = document.getElementById('control-list')!;
 const artworkSelectorEl = document.getElementById('artwork-selector')!;
 const headerActionsEl = document.getElementById('header-actions')!;
@@ -147,6 +148,7 @@ async function selectArtwork(path: string) {
     renderArtworkSelector();
     renderCanvasControls();
     renderControls();
+    renderCaption();
     renderPreview();
   } catch (e) {
     console.error('Failed to load artwork:', e);
@@ -201,9 +203,10 @@ function showLoadError(failedPath: string) {
   previewEl.innerHTML = '';
   previewEl.appendChild(errorContainer);
 
-  // Clear the control list since we have no valid artwork
+  // Clear the control list and caption since we have no valid artwork
   controlListEl.innerHTML = '';
   canvasControlsEl.innerHTML = '';
+  artworkCaptionEl.innerHTML = '';
 }
 
 /**
@@ -492,6 +495,31 @@ function renderControls() {
       handleEditControl
     )
   );
+}
+
+/**
+ * Render the artwork caption (title and description).
+ */
+function renderCaption() {
+  if (!currentArtwork) {
+    artworkCaptionEl.innerHTML = '';
+    return;
+  }
+
+  const { title, description } = currentArtwork.meta;
+  artworkCaptionEl.innerHTML = '';
+
+  const titleEl = document.createElement('p');
+  titleEl.className = 'artwork-title';
+  titleEl.textContent = title;
+  artworkCaptionEl.appendChild(titleEl);
+
+  if (description) {
+    const descEl = document.createElement('p');
+    descEl.className = 'artwork-description';
+    descEl.textContent = description;
+    artworkCaptionEl.appendChild(descEl);
+  }
 }
 
 /**
