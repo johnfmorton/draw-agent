@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="favicon.png" alt="Draw Agent logo" width="64" height="64">
+</p>
+
 # Draw Agent
 
 A web-based coding playground for creating generative art with pen plotters like the AxiDraw. Write TypeScript artwork files, tweak parameters in real-time, and export SVGs ready for plotting.
