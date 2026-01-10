@@ -391,6 +391,44 @@ The `saveValuesPlugin` provides a dev server endpoint for writing values to side
 5. **No over-engineering**: Vanilla TS/HTML/CSS, no framework dependencies
 6. **Local-only**: No server, no auth, no deployment concerns
 
+## Versioning and Changelog
+
+This project follows [Semantic Versioning](https://semver.org/) and maintains a changelog using the [Keep a Changelog](https://keepachangelog.com/) format.
+
+### Updating the Changelog
+
+When making changes to the codebase, document them in `CHANGELOG.md` under the `[Unreleased]` section. Group changes into these categories:
+
+- **Added** — new features
+- **Changed** — changes to existing functionality
+- **Deprecated** — features that will be removed in future versions
+- **Removed** — features that have been removed
+- **Fixed** — bug fixes
+- **Security** — vulnerability fixes
+
+Example entry:
+```markdown
+## [Unreleased]
+
+### Added
+
+- New color picker control type
+```
+
+### Semantic Versioning
+
+When releasing a new version, move items from `[Unreleased]` to a new version section and update `package.json`:
+
+- **MAJOR** (x.0.0) — breaking changes that require users to modify their artwork files
+- **MINOR** (0.x.0) — new features that are backwards-compatible (new control types, new exports, etc.)
+- **PATCH** (0.0.x) — backwards-compatible bug fixes
+
+### Release Process
+
+1. Move `[Unreleased]` entries to a new version section with today's date
+2. Update `version` in `package.json` to match
+3. Commit with message: `chore: Release vX.Y.Z`
+
 ## Future Considerations
 
 - SVG export for plotter (download button)
