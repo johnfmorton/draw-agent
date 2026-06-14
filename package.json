@@ -10,9 +10,9 @@
   },
   "devDependencies": {
     "@inquirer/prompts": "^8.1.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.3.3",
-    "vite": "^6.4.2"
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "@johnfmorton/generative-utils": "^1.2.0",
