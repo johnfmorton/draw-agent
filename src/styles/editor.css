@@ -1,0 +1,165 @@
+/* Editor Pane */
+#editor-pane {
+  width: 520px;
+  min-width: 280px;
+  max-width: 70vw;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+#editor-pane.is-collapsed {
+  width: 36px;
+  min-width: 36px;
+}
+
+/* Collapsed strip */
+.editor-collapsed-strip {
+  display: none;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-secondary);
+  transition: color 0.15s;
+}
+
+.editor-collapsed-strip:hover {
+  color: var(--accent);
+}
+
+#editor-pane.is-collapsed .editor-collapsed-strip {
+  display: flex;
+}
+
+#editor-pane.is-collapsed .editor-body {
+  display: none;
+}
+
+/* Editor body */
+.editor-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.editor-collapse {
+  padding: 2px 8px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.editor-filename {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-dirty-dot {
+  display: none;
+  color: var(--accent);
+  font-size: 10px;
+}
+
+#editor-pane.is-dirty .editor-dirty-dot {
+  display: inline;
+}
+
+.editor-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-hint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
+.editor-status.is-ok {
+  color: var(--accent);
+}
+
+.editor-status.is-err {
+  color: var(--danger);
+}
+
+.editor-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.editor-actions button {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+/* Conflict bar */
+.editor-conflict {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #e5c07b;
+  background: #33290f;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-conflict.is-visible {
+  display: flex;
+}
+
+.editor-conflict button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* CodeMirror host */
+.editor-cm {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-unavailable {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-hint);
+  line-height: 1.5;
+}
+
+/* Resizer */
+#editor-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  touch-action: none;
+}
+
+#editor-resizer:hover,
+#editor-resizer.is-dragging {
+  background: var(--accent);
+}

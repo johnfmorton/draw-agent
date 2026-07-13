@@ -72,6 +72,15 @@ body {
   overflow: hidden;
 }
 
+/* Center Pane (preview + console) */
+#center-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Preview Pane */
 #preview-pane {
   flex: 1;

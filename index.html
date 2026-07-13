@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="/src/styles/main.css" />
     <link rel="stylesheet" href="/src/styles/controls.css" />
     <link rel="stylesheet" href="/src/styles/dialog.css" />
+    <link rel="stylesheet" href="/src/styles/editor.css" />
+    <link rel="stylesheet" href="/src/styles/console.css" />
   </head>
   <body>
     <div id="app">
@@ -21,11 +23,16 @@
         </div>
       </header>
       <main id="main">
-        <div id="preview-pane">
-          <div id="preview-wrapper">
-            <div id="preview"></div>
-            <div id="artwork-caption"></div>
+        <aside id="editor-pane" aria-label="Code editor"></aside>
+        <div id="editor-resizer" title="Drag to resize editor"></div>
+        <div id="center-pane">
+          <div id="preview-pane">
+            <div id="preview-wrapper">
+              <div id="preview"></div>
+              <div id="artwork-caption"></div>
+            </div>
           </div>
+          <section id="console-panel" aria-label="Console"></section>
         </div>
         <div id="control-pane">
           <div id="control-pane-header">

@@ -9,7 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- In-browser code editor (CodeMirror 6) that edits artwork files directly on disk — save with Cmd+S, collapsible and resizable pane, and conflict detection when a file changes externally (e.g. in VS Code)
+- Console panel below the preview capturing `console.log`/`warn`/`error`, uncaught errors, and unhandled promise rejections, with duplicate-message collapsing and error/warning count badges
+- Prettier formatting on save, plus a Format button (Shift+Alt+F) in the editor
+- Vite dev-server endpoint (`/__art/*`) for reading and writing artwork source files
+- Prettier configuration (`.prettierrc.json`) matching the project's single-quote style
 - Favicon for browser tab
+
+### Fixed
+
+- HMR updates no longer stack duplicate event listeners or insert a duplicate canvas-controls container when `main.ts` re-executes
 
 ## [1.0.0] - 2026-01-10
 

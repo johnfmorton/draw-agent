@@ -6,7 +6,11 @@
  * This artwork uses SVG.js for cleaner element creation.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
@@ -97,7 +101,16 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { cols, rows, padding, lineWidth, fillChance, showGrid, pattern, seed } = values;
+  const {
+    cols,
+    rows,
+    padding,
+    lineWidth,
+    fillChance,
+    showGrid,
+    pattern,
+    seed,
+  } = values;
 
   const random = createRandom(seed);
   const { width, height } = canvasToPixels(canvasConfig);
@@ -124,7 +137,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   }
 
   // Draw patterns in cells
-  const patternGroup = draw.group()
+  const patternGroup = draw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
@@ -140,7 +154,10 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
       switch (pattern) {
         case 'circles':
-          patternGroup.circle(r * 2).cx(cx).cy(cy);
+          patternGroup
+            .circle(r * 2)
+            .cx(cx)
+            .cy(cy);
           break;
 
         case 'diagonal':

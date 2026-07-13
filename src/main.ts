@@ -35,6 +35,14 @@ import {
   clearWorkingCanvas,
 } from './sync/local-storage';
 import { exportSVG, openExportDialog } from './export/svg-export';
+import {
+  installConsoleCapture,
+  initConsolePanel,
+} from './console/console-panel';
+import { initEditorPane } from './editor/editor-pane';
+
+// Capture console output before anything else logs
+installConsoleCapture();
 
 // App state
 let currentArtwork: ArtworkModule | null = null;
@@ -57,10 +65,24 @@ const exportSvgBtn = document.getElementById('export-svg-btn')!;
 const addControlBtn = document.getElementById('add-control-btn')!;
 const exportControlsBtn = document.getElementById('export-controls-btn')!;
 
-// Canvas controls container (inserted before header actions)
-const canvasControlsEl = document.createElement('div');
-canvasControlsEl.id = 'canvas-controls-container';
-headerActionsEl.parentElement!.insertBefore(canvasControlsEl, headerActionsEl);
+// Canvas controls container (inserted before header actions).
+// Reuse an existing container: main.ts re-executes on every HMR update,
+// and unconditionally creating one would insert a duplicate each time.
+const canvasControlsEl = (() => {
+  const existing = document.getElementById('canvas-controls-container');
+  if (existing) return existing;
+  const el = document.createElement('div');
+  el.id = 'canvas-controls-container';
+  headerActionsEl.parentElement!.insertBefore(el, headerActionsEl);
+  return el;
+})();
+
+// Console panel and code editor (state survives HMR re-runs)
+initConsolePanel(document.getElementById('console-panel')!);
+const editorPane = initEditorPane(
+  document.getElementById('editor-pane')!,
+  document.getElementById('editor-resizer')!
+);
 
 /**
  * Initialize the app.
@@ -90,19 +112,25 @@ async function init() {
   // Load the artwork
   await selectArtwork(artworkToLoad);
 
-  // Set up event listeners
-  resetBtn.addEventListener('click', handleResetAll);
-  copyUrlBtn.addEventListener('click', handleCopyUrl);
-  exportSvgBtn.addEventListener('click', handleExportSvg);
-  addControlBtn.addEventListener('click', handleAddControl);
-  exportControlsBtn.addEventListener('click', handleExportControls);
+  // Set up event listeners. Handlers are assigned (not added) so they
+  // stay singular when main.ts re-executes on HMR updates.
+  resetBtn.onclick = handleResetAll;
+  copyUrlBtn.onclick = handleCopyUrl;
+  exportSvgBtn.onclick = handleExportSvg;
+  addControlBtn.onclick = handleAddControl;
+  exportControlsBtn.onclick = handleExportControls;
 
   // Listen for URL changes (back/forward)
-  window.addEventListener('popstate', handlePopState);
+  window.onpopstate = handlePopState;
 
   // Set up HMR
   if (import.meta.hot) {
     import.meta.hot.accept();
+
+    // Sent by the art-files plugin when a file in art/ changes on disk
+    import.meta.hot.on('art-file-changed', (data: { name: string }) => {
+      void editorPane.handleExternalChange(data.name);
+    });
   }
 }
 
@@ -150,10 +178,29 @@ async function selectArtwork(path: string) {
     renderControls();
     renderCaption();
     renderPreview();
+
+    // Load source into the code editor
+    void editorPane.setArtwork(artworkName);
   } catch (e) {
     console.error('Failed to load artwork:', e);
     showLoadError(path);
   }
+}
+
+/**
+ * Handle artwork selection from the dropdown, guarding against losing
+ * unsaved editor changes.
+ */
+async function handleSelectArtwork(path: string) {
+  if (
+    getArtworkName(path) !== currentArtworkName &&
+    !editorPane.confirmDiscard()
+  ) {
+    // Restore the dropdown to the current artwork
+    renderArtworkSelector();
+    return;
+  }
+  await selectArtwork(path);
 }
 
 /**
@@ -459,7 +506,7 @@ function renderArtworkSelector() {
   const artworks = getAvailableArtworks();
   artworkSelectorEl.innerHTML = '';
   artworkSelectorEl.appendChild(
-    createArtworkSelector(artworks, currentArtworkName, selectArtwork)
+    createArtworkSelector(artworks, currentArtworkName, handleSelectArtwork)
   );
 }
 
