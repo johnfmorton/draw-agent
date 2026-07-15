@@ -180,3 +180,14 @@ export function debouncedUpdateUrl(hash: string, delay = 300): void {
     urlUpdateTimeout = null;
   }, delay);
 }
+
+/**
+ * Cancel a pending debounced update, so a hash set directly afterwards
+ * isn't clobbered when the stale timeout fires.
+ */
+export function cancelPendingUrlUpdate(): void {
+  if (urlUpdateTimeout) {
+    clearTimeout(urlUpdateTimeout);
+    urlUpdateTimeout = null;
+  }
+}

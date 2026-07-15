@@ -6,10 +6,12 @@ import type { Plugin } from 'vite';
  * Vite plugin exposing artwork source files to the in-browser editor.
  *
  * Dev-server endpoints (dev mode only):
- * - GET  /__art/<name>        → raw source of art/<name>.ts (text/plain)
- * - POST /__art/<name>        → format body with Prettier, write to disk,
- *                               respond with SaveResponse JSON
- * - POST /__art/<name>?dry=1  → format only, no write (for the Format button)
+ * - GET  /__art/<name>           → raw source of art/<name>.ts (text/plain)
+ * - POST /__art/<name>           → format body with Prettier, write to disk,
+ *                                  respond with SaveResponse JSON
+ * - POST /__art/<name>?dry=1     → format only, no write (Format button)
+ * - POST /__art/<name>?create=1  → create only: 409 if the file exists
+ *                                  (used by the New Artwork wizard)
  *
  * Also notifies the client over the HMR websocket when a file in art/
  * changes on disk (event: 'art-file-changed', data: { name }), so the
@@ -90,7 +92,13 @@ export function artFilesPlugin(): Plugin {
 
             const result = await format(body, filepath);
             if (url.searchParams.get('dry') !== '1') {
-              await fs.writeFile(filepath, result.source, 'utf-8');
+              // 'wx' fails with EEXIST when the file exists — atomic
+              // create guard, no check-then-write race
+              const flag = url.searchParams.get('create') === '1' ? 'wx' : 'w';
+              await fs.writeFile(filepath, result.source, {
+                encoding: 'utf-8',
+                flag,
+              });
             }
 
             res.setHeader('Content-Type', 'application/json');
@@ -103,6 +111,8 @@ export function artFilesPlugin(): Plugin {
           const code = (e as NodeJS.ErrnoException).code;
           if (code === 'ENOENT') {
             fail(404, `Artwork not found: ${name}`);
+          } else if (code === 'EEXIST') {
+            fail(409, `Artwork already exists: ${name}`);
           } else {
             fail(500, e instanceof Error ? e.message : String(e));
           }

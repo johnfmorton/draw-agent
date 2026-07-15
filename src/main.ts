@@ -16,14 +16,21 @@ import {
 } from './controls/schema';
 import { renderControlList, createArtworkSelector } from './controls/control-list';
 import { createCanvasControls } from './controls/canvas-controls';
-import { openControlDialog, generateControlsCode } from './controls/control-dialog';
+import {
+  openControlDialog,
+  generateControlsCode,
+  getWriteControlsToFilePreference,
+} from './controls/control-dialog';
 import type { ControlDefinition } from './controls/schema';
 import {
   parseUrlState,
   encodeUrlState,
   getUrlHash,
   debouncedUpdateUrl,
+  updateUrl,
+  cancelPendingUrlUpdate,
 } from './sync/url-state';
+import { openNewArtworkDialog } from './wizard/new-artwork-dialog';
 import {
   loadWorkingValues,
   saveWorkingValues,
@@ -43,6 +50,13 @@ import { initEditorPane } from './editor/editor-pane';
 
 // Capture console output before anything else logs
 installConsoleCapture();
+
+declare global {
+  interface Window {
+    /** Set after the wizard creates a file, until the HMR re-run lands. */
+    __drawAgentPendingCreate?: { name: string; timer: number };
+  }
+}
 
 // App state
 let currentArtwork: ArtworkModule | null = null;
@@ -64,6 +78,7 @@ const copyUrlBtn = document.getElementById('copy-url-btn')!;
 const exportSvgBtn = document.getElementById('export-svg-btn')!;
 const addControlBtn = document.getElementById('add-control-btn')!;
 const exportControlsBtn = document.getElementById('export-controls-btn')!;
+const newArtworkBtn = document.getElementById('new-artwork-btn')!;
 
 // Canvas controls container (inserted before header actions).
 // Reuse an existing container: main.ts re-executes on every HMR update,
@@ -89,6 +104,14 @@ const editorPane = initEditorPane(
  */
 async function init() {
   const artworks = getAvailableArtworks();
+
+  // A wizard-created file arrived via the glob update — cancel the
+  // full-reload fallback.
+  const pending = window.__drawAgentPendingCreate;
+  if (pending && artworks.some((a) => a.name === pending.name)) {
+    window.clearTimeout(pending.timer);
+    delete window.__drawAgentPendingCreate;
+  }
 
   if (artworks.length === 0) {
     previewEl.innerHTML = '<p class="no-artworks">No artworks found in art/ directory</p>';
@@ -119,6 +142,13 @@ async function init() {
   exportSvgBtn.onclick = handleExportSvg;
   addControlBtn.onclick = handleAddControl;
   exportControlsBtn.onclick = handleExportControls;
+  newArtworkBtn.onclick = handleNewArtwork;
+
+  // The wizard writes through the dev-server endpoint, which only
+  // exists under `vite dev` — hide the button in built output.
+  if (!import.meta.env.DEV) {
+    (newArtworkBtn as HTMLElement).style.display = 'none';
+  }
 
   // Listen for URL changes (back/forward)
   window.onpopstate = handlePopState;
@@ -201,6 +231,27 @@ async function handleSelectArtwork(path: string) {
     return;
   }
   await selectArtwork(path);
+}
+
+/**
+ * Handle creating a new artwork via the wizard dialog.
+ */
+async function handleNewArtwork() {
+  // Creating navigates away from the current artwork
+  if (!editorPane.confirmDiscard()) return;
+
+  const existingNames = getAvailableArtworks().map((a) => a.name);
+  const result = await openNewArtworkDialog(existingNames);
+  if (!result) return;
+
+  // The new file invalidates artwork-loader's import.meta.glob; the HMR
+  // update re-runs main.ts and init() picks the artwork from the hash.
+  cancelPendingUrlUpdate();
+  updateUrl(`#artwork=${encodeURIComponent(result.name)}`);
+
+  // If the glob update never arrives, fall back to a full reload.
+  const timer = window.setTimeout(() => window.location.reload(), 1500);
+  window.__drawAgentPendingCreate = { name: result.name, timer };
 }
 
 /**
@@ -387,10 +438,43 @@ async function handleExportSvg() {
 }
 
 /**
+ * Options for the control dialog: offer write-to-file when the dev
+ * server (and thus the /__art endpoint) is available.
+ */
+function controlDialogOptions() {
+  return import.meta.env.DEV && currentArtworkName
+    ? { fileTarget: currentArtworkName }
+    : {};
+}
+
+/**
+ * Write the current controls into the artwork file's controls block,
+ * keeping draw()'s `const { ... } = values;` line in sync so the values
+ * are immediately usable. Falls back to the clipboard if the block
+ * can't be updated in place.
+ */
+async function syncControlsToFile() {
+  const code = generateControlsCode(currentControls);
+  const status = await editorPane.updateControlsBlock(code, currentControls);
+  if (status === 'saved') return;
+
+  try {
+    await navigator.clipboard.writeText(code);
+    alert(
+      'Could not update the file automatically — the controls code was copied to your clipboard instead. Paste it over the controls block in your artwork file.'
+    );
+  } catch {
+    alert(
+      'Could not update the file automatically. Use the Export button to copy the controls code.'
+    );
+  }
+}
+
+/**
  * Handle adding a new control.
  */
 async function handleAddControl() {
-  const result = await openControlDialog();
+  const result = await openControlDialog(undefined, controlDialogOptions());
   if (!result || result.action !== 'create') return;
 
   // Check for duplicate ID
@@ -407,6 +491,10 @@ async function handleAddControl() {
   updateUrlFromState();
   renderControls();
   renderPreview();
+
+  if (result.writeToFile) {
+    await syncControlsToFile();
+  }
 }
 
 /**
@@ -416,7 +504,7 @@ async function handleEditControl(controlId: string) {
   const control = currentControls.find((c) => c.id === controlId);
   if (!control) return;
 
-  const result = await openControlDialog(control);
+  const result = await openControlDialog(control, controlDialogOptions());
   if (!result) return;
 
   if (result.action === 'delete') {
@@ -440,6 +528,28 @@ async function handleEditControl(controlId: string) {
   updateUrlFromState();
   renderControls();
   renderPreview();
+
+  if (result.writeToFile) {
+    await syncControlsToFile();
+  }
+}
+
+/**
+ * Handle drag-reordering of controls. The list DOM already reflects the
+ * new order; update state and persist to the file per the user's
+ * write-to-file preference.
+ */
+function handleReorderControls(orderedIds: string[]) {
+  const byId = new Map(currentControls.map((c) => [c.id, c]));
+  const reordered = orderedIds
+    .map((id) => byId.get(id))
+    .filter((c): c is ControlDefinition => c !== undefined);
+  if (reordered.length !== currentControls.length) return;
+  currentControls = reordered;
+
+  if (import.meta.env.DEV && getWriteControlsToFilePreference()) {
+    void syncControlsToFile();
+  }
 }
 
 /**
@@ -539,7 +649,8 @@ function renderControls() {
       fileDefaults,
       handleValueChange,
       handleResetControl,
-      handleEditControl
+      handleEditControl,
+      handleReorderControls
     )
   );
 }

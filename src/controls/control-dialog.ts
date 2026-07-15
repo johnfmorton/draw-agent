@@ -10,11 +10,31 @@ import type {
   VectorControl,
   RectangleControl,
 } from './schema';
+import { generateControlsBlock } from '../artwork-template';
 
 export type ControlDialogResult =
-  | { action: 'create'; control: ControlDefinition }
-  | { action: 'update'; control: ControlDefinition }
-  | { action: 'delete'; controlId: string };
+  | { action: 'create'; control: ControlDefinition; writeToFile: boolean }
+  | { action: 'update'; control: ControlDefinition; writeToFile: boolean }
+  | { action: 'delete'; controlId: string; writeToFile: boolean };
+
+export interface ControlDialogOptions {
+  /**
+   * Artwork name whose file can receive the change. When set, the
+   * dialog offers a "Write to art/<name>.ts" checkbox; when omitted
+   * (no dev server), changes stay browser-only.
+   */
+  fileTarget?: string;
+}
+
+const WRITE_TO_FILE_KEY = 'draw-agent:controls-write-to-file';
+
+/**
+ * The user's last "write control changes to file" choice (default: on).
+ * Shared with actions that have no dialog, like drag-reordering.
+ */
+export function getWriteControlsToFilePreference(): boolean {
+  return localStorage.getItem(WRITE_TO_FILE_KEY) !== 'false';
+}
 
 type ControlType = ControlDefinition['type'];
 
@@ -33,10 +53,12 @@ const CONTROL_TYPES: { value: ControlType; label: string }[] = [
  * Open a dialog to add or edit a control.
  */
 export function openControlDialog(
-  existing?: ControlDefinition
+  existing?: ControlDefinition,
+  options?: ControlDialogOptions
 ): Promise<ControlDialogResult | null> {
   return new Promise((resolve) => {
     const isEdit = !!existing;
+    const fileTarget = options?.fileTarget;
 
     const overlay = document.createElement('div');
     overlay.className = 'dialog-overlay';
@@ -76,6 +98,15 @@ export function openControlDialog(
 
       <div id="dialog-type-fields"></div>
 
+      ${
+        fileTarget
+          ? `<div class="checkbox-field dialog-write-file">
+               <input type="checkbox" id="dialog-write-file" />
+               <label for="dialog-write-file">Write to <strong>art/${fileTarget}.ts</strong> <span class="dialog-hint">(updates the controls block in the file)</span></label>
+             </div>`
+          : ''
+      }
+
       <div class="dialog-actions">
         ${isEdit ? '<button type="button" id="dialog-delete" class="dialog-btn-danger">Delete</button>' : ''}
         <div class="dialog-actions-right">
@@ -93,6 +124,18 @@ export function openControlDialog(
     const idInput = dialog.querySelector('#dialog-id') as HTMLInputElement;
     const labelInput = dialog.querySelector('#dialog-label') as HTMLInputElement;
     const typeFieldsContainer = dialog.querySelector('#dialog-type-fields') as HTMLDivElement;
+    const writeFileCheckbox = dialog.querySelector('#dialog-write-file') as HTMLInputElement | null;
+
+    // Restore the last write-to-file choice (default: on)
+    if (writeFileCheckbox) {
+      writeFileCheckbox.checked = localStorage.getItem(WRITE_TO_FILE_KEY) !== 'false';
+    }
+
+    function shouldWriteToFile(): boolean {
+      if (!writeFileCheckbox) return false;
+      localStorage.setItem(WRITE_TO_FILE_KEY, String(writeFileCheckbox.checked));
+      return writeFileCheckbox.checked;
+    }
 
     // Render type-specific fields
     function renderTypeFields() {
@@ -129,7 +172,11 @@ export function openControlDialog(
 
     dialog.querySelector('#dialog-delete')?.addEventListener('click', () => {
       if (confirm(`Delete control "${existing!.label}"?`)) {
-        close({ action: 'delete', controlId: existing!.id });
+        close({
+          action: 'delete',
+          controlId: existing!.id,
+          writeToFile: shouldWriteToFile(),
+        });
       }
     });
 
@@ -152,7 +199,11 @@ export function openControlDialog(
 
       const control = buildControlFromDialog(dialog);
       if (control) {
-        close({ action: isEdit ? 'update' : 'create', control });
+        close({
+          action: isEdit ? 'update' : 'create',
+          control,
+          writeToFile: shouldWriteToFile(),
+        });
       }
     });
   });
@@ -482,11 +533,9 @@ function buildControlFromDialog(dialog: HTMLElement): ControlDefinition | null {
 
 /**
  * Generate TypeScript code for controls schema.
+ * Delegates to the shared serializer, which escapes string values
+ * correctly (the old JSON-based approach broke on apostrophes).
  */
 export function generateControlsCode(controls: ControlSchema): string {
-  const formatted = JSON.stringify([...controls], null, 2)
-    .replace(/"(\w+)":/g, '$1:')  // Unquote keys
-    .replace(/"/g, "'");          // Use single quotes
-
-  return `export const controls = ${formatted} as const satisfies ControlSchema;`;
+  return generateControlsBlock(controls);
 }

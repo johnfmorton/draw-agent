@@ -45,6 +45,45 @@
   background: var(--bg-control);
 }
 
+.control-row.is-reorderable {
+  grid-template-columns: 14px 100px 1fr auto;
+}
+
+.control-grip {
+  color: var(--text-hint);
+  font-size: 11px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  touch-action: none;
+}
+
+.control-row:hover .control-grip {
+  opacity: 1;
+}
+
+.control-grip:hover {
+  color: var(--text-secondary);
+}
+
+.control-grip:active {
+  cursor: grabbing;
+}
+
+.control-row.is-dragging {
+  opacity: 0.4;
+}
+
+.control-row.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.control-row.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
 .control-row.is-dirty {
   background: var(--bg-dirty);
 }

@@ -224,7 +224,8 @@
   margin-bottom: 8px;
 }
 
-.checkbox-field input[type="checkbox"] {
+.checkbox-field input[type="checkbox"],
+.checkbox-field input[type="radio"] {
   width: auto;
   margin: 0;
   cursor: pointer;
@@ -237,4 +238,54 @@
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+/* Write-to-file option in the control dialog */
+.dialog-write-file {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.dialog-write-file strong {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* New Artwork Wizard */
+.wizard-dialog {
+  min-width: 520px;
+}
+
+.wizard-step-indicator {
+  margin: -12px 0 16px 0;
+  font-size: 12px;
+  color: var(--text-hint);
+}
+
+.wizard-section-title {
+  margin: 16px 0 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.wizard-option {
+  align-items: flex-start;
+  padding: 2px 0;
+}
+
+.wizard-option input {
+  margin-top: 3px;
+}
+
+.wizard-option label strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.dialog-hint.is-error {
+  color: var(--danger);
 }

@@ -20,6 +20,14 @@ import { indentUnit } from '@codemirror/language';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 import type { SaveResponse } from '../vite-plugins/art-files';
+import type { ControlDefinition } from '../controls/schema';
+import { computeValuesDestructureEdits } from '../artwork-template';
+
+export type ControlsBlockResult =
+  | 'saved'
+  | 'save-failed'
+  | 'no-match'
+  | 'unavailable';
 
 export interface EditorPaneApi {
   /** Load an artwork's source into the editor. */
@@ -28,10 +36,19 @@ export interface EditorPaneApi {
   handleExternalChange(name: string): Promise<void>;
   /** Returns false if the user wants to keep unsaved changes. */
   confirmDiscard(): boolean;
+  /**
+   * Replace the `export const controls = [...]` block in the current
+   * document with the given code, keep draw()'s values destructure in
+   * sync when `controls` is provided, then save the file.
+   */
+  updateControlsBlock(
+    code: string,
+    controls?: readonly ControlDefinition[]
+  ): Promise<ControlsBlockResult>;
 }
 
 interface EditorCtl extends EditorPaneApi {
-  save(): Promise<void>;
+  save(): Promise<boolean>;
   formatDoc(): Promise<void>;
   onUpdate(update: ViewUpdate): void;
 }
@@ -430,8 +447,8 @@ export function initEditorPane(
     await syncFromDisk(name);
   }
 
-  async function save(): Promise<void> {
-    if (!s.artworkName || !s.available) return;
+  async function save(): Promise<boolean> {
+    if (!s.artworkName || !s.available) return false;
     const content = view.state.doc.toString();
     setStatus('Saving…');
     try {
@@ -457,12 +474,41 @@ export function initEditorPane(
           data.formatError ?? ''
         );
       }
+      return true;
     } catch (e) {
       setStatus(
         `Save failed: ${e instanceof Error ? e.message : String(e)}`,
         'err'
       );
+      return false;
     }
+  }
+
+  /**
+   * Swap the controls block in the live document and save, so control
+   * edits made in the UI land in the file (and its HMR reload). When
+   * `controls` is provided, the `const { ... } = values;` line in draw()
+   * is updated to match, so new control values are immediately usable.
+   */
+  async function updateControlsBlock(
+    code: string,
+    controls?: readonly ControlDefinition[]
+  ): Promise<ControlsBlockResult> {
+    if (!s.artworkName || !s.available) return 'unavailable';
+    const doc = view.state.doc.toString();
+    const match =
+      /export const controls = \[[\s\S]*?\] as const satisfies ControlSchema;/.exec(
+        doc
+      );
+    if (!match) return 'no-match';
+    const changes = [
+      { from: match.index, to: match.index + match[0].length, insert: code },
+    ];
+    if (controls) {
+      changes.push(...computeValuesDestructureEdits(doc, controls));
+    }
+    view.dispatch({ changes });
+    return (await save()) ? 'saved' : 'save-failed';
   }
 
   async function formatDoc(): Promise<void> {
@@ -513,7 +559,15 @@ export function initEditorPane(
     if (update.docChanged) refreshDirty();
   }
 
-  s.ctl = { setArtwork, handleExternalChange, confirmDiscard, save, formatDoc, onUpdate };
+  s.ctl = {
+    setArtwork,
+    handleExternalChange,
+    confirmDiscard,
+    updateControlsBlock,
+    save,
+    formatDoc,
+    onUpdate,
+  };
 
   // --- Collapse & resize ---
 
@@ -580,5 +634,5 @@ export function initEditorPane(
     };
   };
 
-  return { setArtwork, handleExternalChange, confirmDiscard };
+  return { setArtwork, handleExternalChange, confirmDiscard, updateControlsBlock };
 }

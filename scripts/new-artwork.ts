@@ -2,80 +2,38 @@
 /**
  * Interactive CLI script to create a new artwork file.
  * Run with: npm run new
+ *
+ * File generation is shared with the in-browser "New Artwork" wizard
+ * via src/artwork-template.ts — keep prompts here, templates there.
  */
 
-import { input, select, confirm, number } from '@inquirer/prompts';
+import { input, select, confirm, number, checkbox } from '@inquirer/prompts';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-// Types for controls
-interface BaseControl {
-  type: string;
-  id: string;
-  label: string;
-}
-
-interface SliderControl extends BaseControl {
-  type: 'slider';
-  min: number;
-  max: number;
-  step?: number;
-  default: number;
-}
-
-interface NumericControl extends BaseControl {
-  type: 'numeric';
-  min?: number;
-  max?: number;
-  step?: number;
-  default: number;
-}
-
-interface ToggleControl extends BaseControl {
-  type: 'toggle';
-  default: boolean;
-}
-
-interface DropdownOption {
-  value: string;
-  label: string;
-}
-
-interface DropdownControl extends BaseControl {
-  type: 'dropdown';
-  options: DropdownOption[];
-  default: string;
-}
-
-interface SeedControl extends BaseControl {
-  type: 'seed';
-  default: number;
-}
-
-interface Point2DControl extends BaseControl {
-  type: 'point2d';
-  default: { x: number; y: number };
-}
-
-interface VectorControl extends BaseControl {
-  type: 'vector';
-  default: { x: number; y: number };
-}
-
-interface RectangleControl extends BaseControl {
-  type: 'rectangle';
-  default: { x: number; y: number; width: number; height: number };
-}
-
-type Control =
-  | SliderControl
-  | NumericControl
-  | ToggleControl
-  | DropdownControl
-  | SeedControl
-  | Point2DControl
-  | VectorControl
-  | RectangleControl;
+import { format, resolveConfig } from 'prettier';
+import {
+  generateArtworkSource,
+  makeSeedControl,
+  isValidArtworkName,
+  normalizeArtworkName,
+  titleFromName,
+  HELPER_GROUPS,
+  type ArtworkApi,
+  type HelperGroupId,
+} from '../src/artwork-template';
+import type {
+  ControlDefinition,
+  SliderControl,
+  NumericControl,
+  ToggleControl,
+  DropdownControl,
+  DropdownOption,
+  SeedControl,
+  Point2DControl,
+  VectorControl,
+  RectangleControl,
+  CanvasUnit,
+} from '../src/controls/schema';
 
 // Helper to convert label to camelCase ID
 function labelToId(label: string): string {
@@ -92,64 +50,16 @@ function isValidId(id: string): boolean {
   return /^[a-zA-Z][a-zA-Z0-9]*$/.test(id);
 }
 
-// Validate filename
-function isValidFilename(name: string): boolean {
-  return /^[a-z0-9-]+$/.test(name);
-}
-
-// Generate destructuring statement for all controls
-function generateValuesDestructuring(controls: Control[]): string {
-  if (controls.length === 0) {
-    return '';
-  }
-  const ids = controls.map((c) => c.id);
-  return `  const { ${ids.join(', ')} } = values;`;
-}
-
-// Generate control definition as TypeScript
-function controlToTypeScript(control: Control): string {
-  const base = `    type: '${control.type}',\n    id: '${control.id}',\n    label: '${control.label}',`;
-
-  switch (control.type) {
-    case 'slider': {
-      const step = control.step !== undefined ? `\n    step: ${control.step},` : '';
-      return `  {\n${base}\n    min: ${control.min},\n    max: ${control.max},${step}\n    default: ${control.default},\n  }`;
-    }
-    case 'numeric': {
-      let extras = '';
-      if (control.min !== undefined) extras += `\n    min: ${control.min},`;
-      if (control.max !== undefined) extras += `\n    max: ${control.max},`;
-      if (control.step !== undefined) extras += `\n    step: ${control.step},`;
-      return `  {\n${base}${extras}\n    default: ${control.default},\n  }`;
-    }
-    case 'toggle':
-      return `  {\n${base}\n    default: ${control.default},\n  }`;
-    case 'dropdown': {
-      const opts = control.options
-        .map((o) => `      { value: '${o.value}', label: '${o.label}' }`)
-        .join(',\n');
-      return `  {\n${base}\n    options: [\n${opts},\n    ],\n    default: '${control.default}',\n  }`;
-    }
-    case 'seed':
-      return `  {\n${base}\n    default: ${control.default},\n  }`;
-    case 'point2d':
-      return `  {\n${base}\n    default: { x: ${control.default.x}, y: ${control.default.y} },\n  }`;
-    case 'vector':
-      return `  {\n${base}\n    default: { x: ${control.default.x}, y: ${control.default.y} },\n  }`;
-    case 'rectangle':
-      return `  {\n${base}\n    default: { x: ${control.default.x}, y: ${control.default.y}, width: ${control.default.width}, height: ${control.default.height} },\n  }`;
-  }
-}
-
 // Prompt for a slider control
 async function promptSliderControl(id: string, label: string): Promise<SliderControl> {
   const min = (await number({ message: 'Min value:', default: 0 })) ?? 0;
   const max = (await number({ message: 'Max value:', default: 100 })) ?? 100;
   const stepInput = await input({ message: 'Step (leave empty for auto):', default: '' });
-  const step = stepInput ? parseFloat(stepInput) : undefined;
   const defaultVal = (await number({ message: 'Default value:', default: (min + max) / 2 })) ?? (min + max) / 2;
 
-  return { type: 'slider', id, label, min, max, step, default: defaultVal };
+  const control: SliderControl = { type: 'slider', id, label, min, max, default: defaultVal };
+  if (stepInput) control.step = parseFloat(stepInput);
+  return control;
 }
 
 // Prompt for a numeric control
@@ -159,15 +69,11 @@ async function promptNumericControl(id: string, label: string): Promise<NumericC
   const stepInput = await input({ message: 'Step (leave empty for auto):', default: '' });
   const defaultVal = (await number({ message: 'Default value:', default: 0 })) ?? 0;
 
-  return {
-    type: 'numeric',
-    id,
-    label,
-    min: minInput ? parseFloat(minInput) : undefined,
-    max: maxInput ? parseFloat(maxInput) : undefined,
-    step: stepInput ? parseFloat(stepInput) : undefined,
-    default: defaultVal,
-  };
+  const control: NumericControl = { type: 'numeric', id, label, default: defaultVal };
+  if (minInput) control.min = parseFloat(minInput);
+  if (maxInput) control.max = parseFloat(maxInput);
+  if (stepInput) control.step = parseFloat(stepInput);
+  return control;
 }
 
 // Prompt for a toggle control
@@ -230,7 +136,6 @@ async function promptRectangleControl(id: string, label: string): Promise<Rectan
   return { type: 'rectangle', id, label, default: { x, y, width, height } };
 }
 
-// Prompt for any control type
 // Default labels for each control type
 const defaultLabels: Record<string, string> = {
   slider: 'Value',
@@ -243,15 +148,7 @@ const defaultLabels: Record<string, string> = {
   rectangle: 'Bounds',
 };
 
-// Convert ID to title case for label fallback
-function idToLabel(id: string): string {
-  return id
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (s) => s.toUpperCase())
-    .trim();
-}
-
-async function promptControl(): Promise<Control> {
+async function promptControl(): Promise<ControlDefinition> {
   const type = await select({
     message: 'Control type:',
     choices: [
@@ -299,95 +196,6 @@ async function promptControl(): Promise<Control> {
   }
 }
 
-// Generate the artwork file content
-function generateFileContent(
-  title: string,
-  description: string,
-  width: number,
-  height: number,
-  unit: string,
-  useSvgJs: boolean,
-  controls: Control[]
-): string {
-  const controlsTs = controls.map(controlToTypeScript).join(',\n');
-  const valuesDestructuring = generateValuesDestructuring(controls);
-
-  // Find the seed control ID (if any)
-  const seedControl = controls.find((c) => c.type === 'seed');
-  // If seed control exists, use the destructured variable; otherwise fallback to values.seed
-  const seedRef = seedControl ? seedControl.id : 'values.seed';
-
-  const svgImport = useSvgJs
-    ? "import { createCanvas } from '../src/svg-utils';"
-    : "import { createRawCanvas } from '../src/svg-utils';";
-
-  const svgSetup = useSvgJs
-    ? '  const { svg, draw } = createCanvas(canvasConfig);'
-    : '  const svg = createRawCanvas(canvasConfig);';
-
-  // Generate console.log with all control values (using destructured variables)
-  const controlIds = controls.map((c) => c.id);
-  const consoleLogLine = controlIds.length > 0
-    ? `  console.log({ ${controlIds.join(', ')}, width, height });`
-    : `  console.log({ width, height });`;
-
-  const todoComment = useSvgJs
-    ? `  // TODO: Add your drawing code here
-  // Example: draw.circle(50).cx(width / 2).cy(height / 2).fill('none').stroke('black');
-${consoleLogLine}`
-    : `  // TODO: Add your drawing code here
-  // Example:
-  // const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  // circle.setAttribute('cx', String(width / 2));
-  // circle.setAttribute('cy', String(height / 2));
-  // circle.setAttribute('r', '50');
-  // circle.setAttribute('fill', 'none');
-  // circle.setAttribute('stroke', 'black');
-  // svg.appendChild(circle);
-${consoleLogLine}`;
-
-  const descLine = description ? `\n * ${description}` : '';
-  const descExport = description ? `\n  description: '${description.replace(/'/g, "\\'")}',` : '';
-
-  return `/**
- * ${title}${descLine}
- */
-
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
-import { createRandom } from '../src/random';
-import { canvasToPixels } from '../src/controls/schema';
-${svgImport}
-
-export const meta = {
-  title: '${title.replace(/'/g, "\\'")}',${descExport}
-};
-
-export const canvas: CanvasConfig = {
-  width: ${width},
-  height: ${height},
-  unit: '${unit}',
-};
-
-export const controls = [
-${controlsTs}
-] as const satisfies ControlSchema;
-
-export type Values = InferValues<typeof controls>;
-
-export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-${valuesDestructuring}
-
-  const random = createRandom(${seedRef});
-  const { width, height } = canvasToPixels(canvasConfig);
-${svgSetup}
-
-${todoComment}
-
-  return svg;
-}
-`;
-}
-
 // Main function
 async function main() {
   console.log('\n=== Create New Artwork ===\n');
@@ -400,8 +208,8 @@ async function main() {
   const rawFilename = await input({
     message: 'Filename (without .ts):',
     validate: (val) => {
-      const normalized = val.toLowerCase().replace(/\s+/g, '-').replace(/\.ts$/, '');
-      if (!isValidFilename(normalized)) {
+      const normalized = normalizeArtworkName(val);
+      if (!isValidArtworkName(normalized)) {
         return 'Filename must contain only lowercase letters, numbers, and hyphens';
       }
       const filepath = join(artDir, `${normalized}.ts`);
@@ -410,16 +218,12 @@ async function main() {
       }
       return true;
     },
-    transformer: (val) => val.toLowerCase().replace(/\s+/g, '-').replace(/\.ts$/, ''),
+    transformer: (val) => normalizeArtworkName(val),
   });
-  const filename = rawFilename.toLowerCase().replace(/\s+/g, '-').replace(/\.ts$/, '');
+  const filename = normalizeArtworkName(rawFilename);
 
   // 2. Title (default from filename)
-  const defaultTitle = filename
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-  const title = await input({ message: 'Title:', default: defaultTitle });
+  const title = await input({ message: 'Title:', default: titleFromName(filename) });
 
   // 3. Description (optional)
   const description = await input({ message: 'Description (optional):', default: '' });
@@ -427,7 +231,7 @@ async function main() {
   // 4-6. Canvas configuration
   const width = (await number({ message: 'Canvas width:', default: 8.5 })) ?? 8.5;
   const height = (await number({ message: 'Canvas height:', default: 11 })) ?? 11;
-  const unit = await select({
+  const unit = (await select({
     message: 'Unit:',
     choices: [
       { name: 'Inches (in)', value: 'in' },
@@ -436,20 +240,29 @@ async function main() {
       { name: 'Pixels (px)', value: 'px' },
     ],
     default: 'in',
-  });
+  })) as CanvasUnit;
 
   // 7. SVG approach
-  const useSvgJs = await select({
+  const api = (await select({
     message: 'SVG generation approach:',
     choices: [
-      { name: 'SVG.js (recommended - chainable API)', value: true },
-      { name: 'Raw DOM (vanilla, no dependencies)', value: false },
+      { name: 'SVG.js (recommended - chainable API)', value: 'svgjs' },
+      { name: 'Raw DOM (vanilla, no dependencies)', value: 'raw' },
     ],
-    default: true,
-  });
+    default: 'svgjs',
+  })) as ArtworkApi;
 
-  // 8. Controls
-  const controls: Control[] = [];
+  // 8. Optional helpers
+  const helpers = (await checkbox({
+    message: 'Optional helpers to include as commented examples:',
+    choices: HELPER_GROUPS.map((g) => ({
+      name: `${g.label} — ${g.hint} (${g.pkg})`,
+      value: g.id,
+    })),
+  })) as HelperGroupId[];
+
+  // 9. Controls
+  const controls: ControlDefinition[] = [];
   console.log('\n--- Add Controls ---');
   console.log('(You can add controls now, or skip and add them later in the browser)\n');
 
@@ -469,19 +282,26 @@ async function main() {
       default: true,
     });
     if (addSeed) {
-      controls.push({
-        type: 'seed',
-        id: 'seed',
-        label: 'Seed',
-        default: Math.floor(Math.random() * 2147483647),
-      });
+      controls.push(makeSeedControl(Math.floor(Math.random() * 2147483647)));
       console.log('\nAdded: seed "Seed" (seed)\n');
     }
   }
 
-  // 9. Generate file
-  const content = generateFileContent(title, description, width, height, unit, useSvgJs, controls);
+  // 10. Generate file (Prettier-formatted, same as wizard-created files)
+  const source = generateArtworkSource({
+    title,
+    canvas: { width, height, unit },
+    api,
+    helpers,
+    controls,
+    ...(description ? { description } : {}),
+  });
   const filepath = join(artDir, `${filename}.ts`);
+  const prettierConfig = await resolveConfig(filepath);
+  const content = await format(source, {
+    ...prettierConfig,
+    parser: 'typescript',
+  });
 
   writeFileSync(filepath, content, 'utf-8');
 
