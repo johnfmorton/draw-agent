@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional helpers prompt in the `npm run new` CLI matching the wizard's choices
 - Create-safe artwork endpoint: `POST /__art/<name>?create=1` returns 409 instead of overwriting an existing file
 - New helper dependencies for plotter work: `simplex-noise` (seedable flow-field noise), `polygon-clipping` (boolean polygon ops for occlusion/hatching), `bezier-js` (curve splitting, measuring, offsets) with local type declarations for bezier-js
+- Example study artworks for the package helpers: `noise-field-study` (simplex-noise flow field with field-tick view), `polygon-clipping-study` (hidden-line removal via union/difference/intersection, plus hatching clipped to visible regions), and `curve-math-study` (bezier-js curve lab: offsets, normals, splitting, bbox, length)
 
 - "Write to art/&lt;name&gt;.ts" option in the control dialog (on by default, dev server only): adding, editing, or deleting a control rewrites the `controls` block in the artwork file and saves it, so UI-created controls persist without the copy/paste round-trip
 - Writing controls to the artwork file also keeps the `const { ... } = values;` line in `draw()` in sync — newly added control values are immediately usable in code, and renamed/deleted controls don't leave stale bindings behind
