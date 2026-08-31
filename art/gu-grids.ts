@@ -8,7 +8,11 @@
  * Use the dropdown to switch between different grid visualizations.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import {
@@ -23,7 +27,8 @@ import {
 
 export const meta = {
   title: 'Procedural Grids',
-  description: 'Demonstrates noise grids, quadtree subdivision, and Voronoi diagrams',
+  description:
+    'Demonstrates noise grids, quadtree subdivision, and Voronoi diagrams',
 };
 
 export const canvas: CanvasConfig = {
@@ -144,15 +149,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const gridHeight = height - margin * 2;
 
   // Groups for organization
-  const cellGroup = svgDraw.group()
+  const cellGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
-  const decorGroup = svgDraw.group()
+  const decorGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.5 })
     .fill('none');
 
-  const pointGroup = svgDraw.group()
+  const pointGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.4 })
     .fill('none');
 
@@ -169,7 +177,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     });
 
     // Filter out undefined cells (can occur due to floating-point precision in the library)
-    const validCells = noiseGrid.cells.filter(cell => cell !== undefined);
+    const validCells = noiseGrid.cells.filter((cell) => cell !== undefined);
 
     // Draw flow-field-like marks based on noise values
     for (const cell of validCells) {
@@ -193,11 +201,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     }
 
     // Label
-    svgDraw.text(`createNoiseGrid() - ${validCells.length} cells`)
-      .font({ size: 11, family: 'sans-serif' })
+    svgDraw
+      .text(`createNoiseGrid() - ${validCells.length} cells`)
+      .font({ size: 18, family: 'sans-serif' })
       .fill('black')
       .move(margin, height - margin + 15);
-
   } else if (gridType === 'quadtree') {
     // Generate random points for quadtree to respond to
     const points: { x: number; y: number }[] = [];
@@ -229,7 +237,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       // Optional: draw inner circle
       if (showInnerCircles) {
         const innerRadius = Math.min(area.width, area.height) * 0.3;
-        decorGroup.circle(innerRadius * 2)
+        decorGroup
+          .circle(innerRadius * 2)
           .cx(x + area.width / 2)
           .cy(y + area.height / 2);
       }
@@ -238,16 +247,21 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     // Draw the points that influenced subdivision
     if (showCenters) {
       for (const pt of points) {
-        pointGroup.circle(4).cx(margin + pt.x).cy(margin + pt.y);
+        pointGroup
+          .circle(4)
+          .cx(margin + pt.x)
+          .cy(margin + pt.y);
       }
     }
 
     // Label
-    svgDraw.text(`createQtGrid() - ${qtGrid.areas.length} areas from ${pointCount} points`)
-      .font({ size: 11, family: 'sans-serif' })
+    svgDraw
+      .text(
+        `createQtGrid() - ${qtGrid.areas.length} areas from ${pointCount} points`,
+      )
+      .font({ size: 18, family: 'sans-serif' })
       .fill('black')
       .move(margin, height - margin + 15);
-
   } else {
     // createVoronoiDiagram generates Voronoi tessellation
     // Lloyd relaxation makes cells more uniform
@@ -273,7 +287,10 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     for (const cell of voronoi.cells) {
       if (cell.points && cell.points.length > 2) {
         // Convert [x, y] arrays to {x, y} objects
-        const cellPoints = cell.points.map(p => ({ x: margin + p[0], y: margin + p[1] }));
+        const cellPoints = cell.points.map((p) => ({
+          x: margin + p[0],
+          y: margin + p[1],
+        }));
 
         // Draw cell boundary
         const pathString = pointsToPath(cellPoints, true);
@@ -281,14 +298,16 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
         // Draw inner circle (largest circle that fits in cell)
         if (showInnerCircles && cell.innerCircleRadius > 0) {
-          decorGroup.circle(cell.innerCircleRadius * 2)
+          decorGroup
+            .circle(cell.innerCircleRadius * 2)
             .cx(margin + cell.centroid.x)
             .cy(margin + cell.centroid.y);
         }
 
         // Draw cell centroid
         if (showCenters) {
-          pointGroup.circle(4)
+          pointGroup
+            .circle(4)
             .cx(margin + cell.centroid.x)
             .cy(margin + cell.centroid.y);
         }
@@ -298,14 +317,20 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     // Draw relaxed seed points (different from original points)
     if (showCenters) {
       for (const pt of voronoi.points) {
-        pointGroup.circle(6).cx(margin + pt.x).cy(margin + pt.y)
+        pointGroup
+          .circle(6)
+          .cx(margin + pt.x)
+          .cy(margin + pt.y)
           .stroke({ dasharray: '2,2' });
       }
     }
 
     // Label
-    svgDraw.text(`createVoronoiDiagram() - ${voronoi.cells.length} cells, ${relaxIterations} relaxation iterations`)
-      .font({ size: 11, family: 'sans-serif' })
+    svgDraw
+      .text(
+        `createVoronoiDiagram() - ${voronoi.cells.length} cells, ${relaxIterations} relaxation iterations`,
+      )
+      .font({ size: 18, family: 'sans-serif' })
       .fill('black')
       .move(margin, height - margin + 15);
   }
@@ -317,8 +342,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     voronoi: 'Voronoi Diagram with Lloyd Relaxation',
   };
 
-  svgDraw.text(titles[gridType])
-    .font({ size: 14, family: 'sans-serif', weight: 'bold' })
+  svgDraw
+    .text(titles[gridType])
+    .font({ size: 20, family: 'sans-serif', weight: 'bold' })
     .fill('black')
     .move(margin, 30);
 

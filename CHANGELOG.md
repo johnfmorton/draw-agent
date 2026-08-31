@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- 4×6 in and 6×4 in canvas presets (postcard/photo size) in the preset dropdown and New Artwork wizard
+
+### Changed
+
+- Annotation labels in the study artworks enlarged (8–14px → 14–20px) so they're readable at the preview's display scale
+- `curve-math-study` length label now converts px to the canvas's physical unit and reports total pen travel for everything drawn (curve, offsets, ticks, and split highlight)
+
 ## [1.2.0] - 2026-07-15
 
 ### Added

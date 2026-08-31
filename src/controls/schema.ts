@@ -40,6 +40,8 @@ export const CANVAS_PRESETS: Record<string, CanvasConfig> = {
   'A4 Landscape': { width: 297, height: 210, unit: 'mm' },
   'A3': { width: 297, height: 420, unit: 'mm' },
   'A3 Landscape': { width: 420, height: 297, unit: 'mm' },
+  '4×6 in': { width: 4, height: 6, unit: 'in' },
+  '6×4 in': { width: 6, height: 4, unit: 'in' },
   '6×6 in': { width: 6, height: 6, unit: 'in' },
   '8×8 in': { width: 8, height: 8, unit: 'in' },
   '12×12 in': { width: 12, height: 12, unit: 'in' },

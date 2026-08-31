@@ -9,10 +9,20 @@
  * (angle, length, spacing) across the canvas using these utilities.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
-import { seedPRNG, random, map, lerp, clamp } from '@johnfmorton/generative-utils';
+import {
+  seedPRNG,
+  random,
+  map,
+  lerp,
+  clamp,
+} from '@johnfmorton/generative-utils';
 
 export const meta = {
   title: 'Value Mapping Study',
@@ -116,7 +126,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { width, height } = canvasToPixels(canvasConfig);
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
 
-  const group = svgDraw.group()
+  const group = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth, linecap: 'round' })
     .fill('none');
 
@@ -170,12 +181,16 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     // lerp circle size from small to large
     const radius = lerp(5, 20, t);
 
-    group.circle(radius * 2).cx(x).cy(demoY);
+    group
+      .circle(radius * 2)
+      .cx(x)
+      .cy(demoY);
   }
 
   // Label for lerp demo
-  svgDraw.text('lerp(a, b, t) where t = 0.0 to 1.0')
-    .font({ size: 12, family: 'sans-serif' })
+  svgDraw
+    .text('lerp(a, b, t) where t = 0.0 to 1.0')
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
     .move(margin, demoY + 25);
 
@@ -194,26 +209,31 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     group.line(x, mapDemoY - 10, x, mapDemoY + 10);
 
     // Label with input value
-    svgDraw.text(inputVal.toString())
-      .font({ size: 10, family: 'sans-serif' })
+    svgDraw
+      .text(inputVal.toString())
+      .font({ size: 14, family: 'sans-serif' })
       .fill('black')
       .cx(x)
       .cy(mapDemoY + 20);
   }
 
-  svgDraw.text('map(n, 0, 100, start, end)')
-    .font({ size: 12, family: 'sans-serif' })
+  svgDraw
+    .text('map(n, 0, 100, start, end)')
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
     .move(margin, mapDemoY - 25);
 
-  // Side demonstration: clamp() keeping values in bounds
-  const clampDemoX = width - margin + 20;
+  // Side demonstration: clamp() keeping values in bounds. Keep the
+  // column just far enough left that the widest label (120→100) stays
+  // inside the canvas.
+  const clampDemoX = width - margin - 35;
   const clampValues = [-20, 0, 25, 50, 75, 100, 120]; // Some out of range
   const clampMin = 0;
   const clampMax = 100;
 
-  svgDraw.text('clamp()')
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text('clamp()')
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(clampDemoX - 15, margin);
 
@@ -226,15 +246,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
     // Draw circle sized by clamped value
     const radius = map(clampedVal, 0, 100, 3, 15);
-    group.circle(radius * 2).cx(clampDemoX + 20).cy(y);
+    group
+      .circle(radius * 2)
+      .cx(clampDemoX + 20)
+      .cy(y);
 
     // Show original vs clamped if different
-    const label = inputVal !== clampedVal
-      ? `${inputVal}→${clampedVal}`
-      : `${inputVal}`;
+    const label =
+      inputVal !== clampedVal ? `${inputVal}→${clampedVal}` : `${inputVal}`;
 
-    svgDraw.text(label)
-      .font({ size: 8, family: 'sans-serif' })
+    svgDraw
+      .text(label)
+      .font({ size: 14, family: 'sans-serif' })
       .fill('black')
       .move(clampDemoX + 40, y - 4);
   }

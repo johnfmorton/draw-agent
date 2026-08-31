@@ -29,18 +29,19 @@
  * The artwork shows particle traces demonstrating vector physics.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
-import {
-  seedPRNG,
-  random,
-  vec2,
-} from '@johnfmorton/generative-utils';
+import { seedPRNG, random, vec2 } from '@johnfmorton/generative-utils';
 
 export const meta = {
   title: 'Vector Operations',
-  description: 'Demonstrates 2D vector math with particle physics visualization',
+  description:
+    'Demonstrates 2D vector math with particle physics visualization',
 };
 
 export const canvas: CanvasConfig = {
@@ -154,15 +155,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
 
   // Groups for different elements
-  const traceGroup = svgDraw.group()
+  const traceGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth, linecap: 'round' })
     .fill('none');
 
-  const decorGroup = svgDraw.group()
+  const decorGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.5 })
     .fill('none');
 
-  const arrowGroup = svgDraw.group()
+  const arrowGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.4 })
     .fill('none');
 
@@ -182,7 +186,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     // Initial position using vec2.create
     let pos = vec2.create(
       random(bounds.left + 50, bounds.right - 50),
-      random(bounds.top + 50, bounds.top + 150)
+      random(bounds.top + 50, bounds.top + 150),
     );
 
     // Initial velocity using vec2.fromAngle
@@ -267,11 +271,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         const headSize = 4;
         const head1 = vec2.add(
           arrowEnd,
-          vec2.rotate(vec2.multiply(velDir, -headSize), Math.PI / 6)
+          vec2.rotate(vec2.multiply(velDir, -headSize), Math.PI / 6),
         );
         const head2 = vec2.add(
           arrowEnd,
-          vec2.rotate(vec2.multiply(velDir, -headSize), -Math.PI / 6)
+          vec2.rotate(vec2.multiply(velDir, -headSize), -Math.PI / 6),
         );
         arrowGroup.line(arrowEnd.x, arrowEnd.y, head1.x, head1.y);
         arrowGroup.line(arrowEnd.x, arrowEnd.y, head2.x, head2.y);
@@ -289,7 +293,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     // Draw reflection normals
     for (const ref of reflectionPoints) {
       const normalEnd = vec2.add(ref.pos, vec2.multiply(ref.normal, 20));
-      decorGroup.line(ref.pos.x, ref.pos.y, normalEnd.x, normalEnd.y)
+      decorGroup
+        .line(ref.pos.x, ref.pos.y, normalEnd.x, normalEnd.y)
         .stroke({ dasharray: '3,3' });
 
       // Small circle at reflection point
@@ -301,7 +306,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   }
 
   // Draw boundary frame
-  traceGroup.rect(bounds.right - bounds.left, bounds.bottom - bounds.top)
+  traceGroup
+    .rect(bounds.right - bounds.left, bounds.bottom - bounds.top)
     .move(bounds.left, bounds.top);
 
   // Demonstration area: vec2.lerp interpolation
@@ -317,8 +323,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     decorGroup.circle(6).cx(interpVec.x).cy(interpVec.y);
   }
 
-  svgDraw.text('vec2.lerp(a, b, t)')
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text('vec2.lerp(a, b, t)')
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(margin + 50, demoY - 15);
 
@@ -336,19 +343,24 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 
     // Connect to center with dashed line
     if (i % 2 === 0) {
-      decorGroup.line(rotCenter.x, rotCenter.y, rotated.x, rotated.y)
+      decorGroup
+        .line(rotCenter.x, rotCenter.y, rotated.x, rotated.y)
         .stroke({ dasharray: '2,2' });
     }
   }
 
-  svgDraw.text('rotateAround()')
-    .font({ size: 9, family: 'sans-serif' })
+  svgDraw
+    .text('rotateAround()')
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(width - 150, margin + 100);
 
   // Labels
-  svgDraw.text('vec2 operations: add, subtract, multiply, normalize, limit, reflect, perpendicular, lerp, rotate')
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text(
+      'vec2 operations: add, subtract, multiply, normalize, limit, reflect, perpendicular, lerp, rotate',
+    )
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(margin, 25);
 

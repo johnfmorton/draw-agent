@@ -11,7 +11,11 @@
  * lines between nearby neighbors to create an organic mesh.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import { seedPRNG, poissonDisc, random } from '@johnfmorton/generative-utils';
@@ -121,17 +125,19 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   });
 
   // Offset points by margin
-  const offsetPoints = points.map(p => ({
+  const offsetPoints = points.map((p) => ({
     x: p.x + margin,
     y: p.y + margin,
   }));
 
   // Create groups for different elements
-  const connectionGroup = svgDraw.group()
+  const connectionGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
-  const dotGroup = svgDraw.group()
+  const dotGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
@@ -171,20 +177,27 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         // Vary size randomly
         size = dotSize * random(0.5, 1.5);
       }
-      dotGroup.circle(size * 2).cx(point.x).cy(point.y);
+      dotGroup
+        .circle(size * 2)
+        .cx(point.x)
+        .cy(point.y);
     }
   }
 
   // Add info text
-  svgDraw.text(`poissonDisc() - ${offsetPoints.length} points`)
-    .font({ size: 12, family: 'sans-serif' })
+  svgDraw
+    .text(`poissonDisc() - ${offsetPoints.length} points`)
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
-    .move(margin, height - margin + 15);
+    .move(margin, height - margin + 12);
 
-  svgDraw.text(`min distance: ${radius}px`)
-    .font({ size: 10, family: 'sans-serif' })
+  // Beside the first label — a second stacked line would run off the
+  // bottom of the canvas at this font size.
+  svgDraw
+    .text(`min distance: ${radius}px`)
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
-    .move(margin, height - margin + 30);
+    .move(margin + 260, height - margin + 16);
 
   // Visualization of the minimum distance constraint
   // Draw a reference circle showing the exclusion zone
@@ -192,15 +205,17 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     const refPoint = offsetPoints[Math.floor(offsetPoints.length / 2)];
 
     // Dashed circle showing the minimum distance
-    svgDraw.circle(radius * 2)
+    svgDraw
+      .circle(radius * 2)
       .cx(refPoint.x)
       .cy(refPoint.y)
       .stroke({ color: 'black', width: 0.5, dasharray: '4,4' })
       .fill('none');
 
     // Label
-    svgDraw.text(`← radius = ${radius}`)
-      .font({ size: 9, family: 'sans-serif' })
+    svgDraw
+      .text(`← radius = ${radius}`)
+      .font({ size: 14, family: 'sans-serif' })
       .fill('black')
       .move(refPoint.x + radius + 5, refPoint.y - 5);
   }

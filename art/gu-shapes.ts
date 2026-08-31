@@ -10,7 +10,11 @@
  * decorations based on distance calculations.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import {
@@ -143,11 +147,13 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { width, height } = canvasToPixels(canvasConfig);
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
 
-  const group = svgDraw.group()
+  const group = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
-  const thinGroup = svgDraw.group()
+  const thinGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.5 })
     .fill('none');
 
@@ -185,7 +191,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       for (let level = 0; level < nestingLevels; level++) {
         const scale = 1 - (level / nestingLevels) * 0.8;
         const radius = baseRadius * scale;
-        const levelRotation = cellRotation + (level * Math.PI) / (nestingLevels * 2);
+        const levelRotation =
+          cellRotation + (level * Math.PI) / (nestingLevels * 2);
 
         let points: { x: number; y: number }[];
 
@@ -219,7 +226,13 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       if (showDistanceLines && nestingLevels > 0) {
         // Get the outermost shape's points
         const outerPoints = usePolygon
-          ? polygon({ sides, radius: baseRadius, cx, cy, rotation: cellRotation })
+          ? polygon({
+              sides,
+              radius: baseRadius,
+              cx,
+              cy,
+              rotation: cellRotation,
+            })
           : star({
               points: starPoints,
               outerRadius: baseRadius,
@@ -246,25 +259,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
             const p2 = outerPoints[(j + 1) % outerPoints.length];
 
             // distToSegment calculates perpendicular distance to line segment
-            const d = distToSegment(
-              [px, py],
-              [p1.x, p1.y],
-              [p2.x, p2.y]
-            );
+            const d = distToSegment([px, py], [p1.x, p1.y], [p2.x, p2.y]);
 
             if (d < minDist) {
               minDist = d;
               // Calculate nearest point on segment for visualization
-              nearestPoint = getNearestPointOnSegment(
-                { x: px, y: py },
-                p1,
-                p2
-              );
+              nearestPoint = getNearestPointOnSegment({ x: px, y: py }, p1, p2);
             }
           }
 
           // Draw line from point to nearest edge
-          thinGroup.line(px, py, nearestPoint.x, nearestPoint.y)
+          thinGroup
+            .line(px, py, nearestPoint.x, nearestPoint.y)
             .stroke({ dasharray: '2,2' });
 
           // Small circle at the test point
@@ -275,21 +281,26 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   }
 
   // Add labels
-  svgDraw.text(`polygon() - ${sides} sides`)
-    .font({ size: 11, family: 'sans-serif' })
+  svgDraw
+    .text(`polygon() - ${sides} sides`)
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
-    .move(margin, height - margin + 20);
+    .move(margin, height - margin + 16);
 
-  svgDraw.text(`star() - ${starPoints} points, ${Math.round(innerRatio * 100)}% inner`)
-    .font({ size: 11, family: 'sans-serif' })
+  svgDraw
+    .text(
+      `star() - ${starPoints} points, ${Math.round(innerRatio * 100)}% inner`,
+    )
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
-    .move(width / 2, height - margin + 20);
+    .move(width / 2, height - margin + 16);
 
   if (showDistanceLines) {
-    svgDraw.text('dashed lines show distToSegment()')
-      .font({ size: 10, family: 'sans-serif' })
+    svgDraw
+      .text('dashed lines show distToSegment()')
+      .font({ size: 14, family: 'sans-serif' })
       .fill('black')
-      .move(margin, height - margin + 35);
+      .move(margin, height - margin + 42);
   }
 
   return svg;
@@ -302,7 +313,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
 function getNearestPointOnSegment(
   p: { x: number; y: number },
   v: { x: number; y: number },
-  w: { x: number; y: number }
+  w: { x: number; y: number },
 ): { x: number; y: number } {
   const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
   if (l2 === 0) return { x: v.x, y: v.y };

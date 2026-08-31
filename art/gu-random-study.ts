@@ -10,10 +10,19 @@
  * random distribution method to visually compare their behavior.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
-import { seedPRNG, random, randomBias, randomSnap } from '@johnfmorton/generative-utils';
+import {
+  seedPRNG,
+  random,
+  randomBias,
+  randomSnap,
+} from '@johnfmorton/generative-utils';
 
 export const meta = {
   title: 'Random Study',
@@ -119,7 +128,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
 
   // Create group with stroke styling for pen plotter
-  const group = svgDraw.group()
+  const group = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth })
     .fill('none');
 
@@ -137,8 +147,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     const rowY = margin + rowHeight * row + rowHeight / 2;
 
     // Add row label
-    svgDraw.text(labels[row])
-      .font({ size: 14, family: 'sans-serif' })
+    svgDraw
+      .text(labels[row])
+      .font({ size: 20, family: 'sans-serif' })
       .fill('black')
       .move(margin, margin + rowHeight * row + 10);
 
@@ -173,14 +184,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       const y = rowY + yVariation;
 
       // Draw the circle
-      group.circle(radius * 2).cx(x).cy(y);
+      group
+        .circle(radius * 2)
+        .cx(x)
+        .cy(y);
     }
   }
 
   // Draw separator lines between rows
   for (let i = 1; i < 3; i++) {
     const y = margin + rowHeight * i;
-    group.line(margin, y, width - margin, y)
+    group
+      .line(margin, y, width - margin, y)
       .stroke({ color: 'black', width: 0.3, dasharray: '5,5' });
   }
 
@@ -189,8 +204,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const demoX = width - margin - 80;
   const demoY = margin + 30;
 
-  svgDraw.text('random(array):')
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text('random(array):')
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(demoX - 20, demoY - 20);
 

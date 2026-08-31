@@ -9,7 +9,11 @@
  * with secondary decorations placed along the curves using pointsInPath.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import {
@@ -145,15 +149,23 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
 
   // Create groups for organization
-  const pathGroup = svgDraw.group()
-    .stroke({ color: 'black', width: lineWidth, linecap: 'round', linejoin: 'round' })
+  const pathGroup = svgDraw
+    .group()
+    .stroke({
+      color: 'black',
+      width: lineWidth,
+      linecap: 'round',
+      linejoin: 'round',
+    })
     .fill('none');
 
-  const markerGroup = svgDraw.group()
+  const markerGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: lineWidth * 0.5 })
     .fill('none');
 
-  const controlPointGroup = svgDraw.group()
+  const controlPointGroup = svgDraw
+    .group()
     .stroke({ color: 'black', width: 0.5, dasharray: '2,2' })
     .fill('none');
 
@@ -185,12 +197,10 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       const perpVariation = random(-40, 40) * t;
       const perpAngle = angle + Math.PI / 2;
 
-      const x = centerX +
-        Math.cos(angle) * dist +
-        Math.cos(perpAngle) * perpVariation;
-      const y = centerY +
-        Math.sin(angle) * dist +
-        Math.sin(perpAngle) * perpVariation;
+      const x =
+        centerX + Math.cos(angle) * dist + Math.cos(perpAngle) * perpVariation;
+      const y =
+        centerY + Math.sin(angle) * dist + Math.sin(perpAngle) * perpVariation;
 
       controlPoints.push({ x, y });
     }
@@ -231,7 +241,10 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         const size = markerSize * sizeScale;
 
         // Draw small circle at each point
-        markerGroup.circle(size * 2).cx(p.x).cy(p.y);
+        markerGroup
+          .circle(size * 2)
+          .cx(p.x)
+          .cy(p.y);
       }
     }
   }
@@ -261,25 +274,29 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   }
 
   // Labels
-  svgDraw.text('spline() - smooth curves from control points')
-    .font({ size: 11, family: 'sans-serif' })
+  svgDraw
+    .text('spline() - smooth curves from control points')
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
     .move(50, 30);
 
-  svgDraw.text(`tension: ${tension}`)
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text(`tension: ${tension}`)
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
-    .move(50, 45);
+    .move(50, 56);
 
   if (showMarkers) {
-    svgDraw.text('○ = pointsInPath() extracted points')
-      .font({ size: 10, family: 'sans-serif' })
+    svgDraw
+      .text('○ = pointsInPath() extracted points')
+      .font({ size: 14, family: 'sans-serif' })
       .fill('black')
-      .move(50, 60);
+      .move(50, 78);
   }
 
-  svgDraw.text('pointsToPath()')
-    .font({ size: 10, family: 'sans-serif' })
+  svgDraw
+    .text('pointsToPath()')
+    .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(60, demoY - 45);
 

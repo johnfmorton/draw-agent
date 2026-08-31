@@ -10,7 +10,8 @@
  *   hatching, feathering)
  * - split(t1, t2): extract a sub-segment of the curve
  * - bbox(): bounding box
- * - length(): arc length (shown as a text label)
+ * - length(): arc length in px (96 per inch), converted to the canvas
+ *   unit and totaled into a pen-travel estimate for everything drawn
  *
  * No seed control: nothing here is random — the drawing is a pure
  * function of the point/slider values.
@@ -21,7 +22,7 @@ import type {
   InferValues,
   CanvasConfig,
 } from '../src/controls/schema';
-import { canvasToPixels } from '../src/controls/schema';
+import { PIXELS_PER_UNIT } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import { Bezier } from 'bezier-js';
 
@@ -168,7 +169,6 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   } = values;
 
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
-  const { width } = canvasToPixels(canvasConfig);
 
   // One cubic curve drives the whole study. Bezier also accepts six
   // coordinates for a quadratic curve, or an array of {x, y} points.
@@ -215,6 +215,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   // --- The curve itself: toSVG() returns ready-to-use path data ---
   mainGroup.path(curve.toSVG());
 
+  // Pen travel: total distance the pen draws (ink layers only; the
+  // dashed guides are screen aids and don't count).
+  const curveLength = curve.length();
+  let travelPx = curveLength;
+
   // --- offset(d): parallel curves on each side ---
   // A single offset may come back as several Bezier segments (the
   // parallel of a cubic is not itself a cubic), so join their path
@@ -223,6 +228,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     for (const side of [1, -1]) {
       const segments = curve.offset(side * pass * offsetGap);
       lightGroup.path(segments.map((s) => s.toSVG()).join(' '));
+      travelPx += segments.reduce((sum, s) => sum + s.length(), 0);
     }
   }
 
@@ -233,6 +239,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     const n = curve.normal(t); // unit normal at t
     lightGroup.line(p.x, p.y, p.x + n.x * tickLength, p.y + n.y * tickLength);
   }
+  travelPx += normalTicks * tickLength;
 
   // --- split(t1, t2): extract a sub-curve, highlighted here ---
   const t1 = Math.min(splitFrom, splitTo);
@@ -240,6 +247,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   if (showSplit && t2 - t1 > 0.001) {
     const segment = curve.split(t1, t2);
     mainGroup.path(segment.toSVG()).stroke({ width: lineWidth * 3 });
+    travelPx += segment.length(); // the highlight retraces the curve
     for (const t of [t1, t2]) {
       const p = curve.get(t);
       mainGroup
@@ -249,12 +257,22 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     }
   }
 
-  // --- length(): arc length, useful for pen-time estimates ---
+  // --- length(): arc length. px are SVG user units at 96 per inch, so
+  // dividing by PIXELS_PER_UNIT gives real-world pen travel — the basis
+  // for plot-time estimates (travel ÷ pen speed).
+  const ppu = PIXELS_PER_UNIT[canvasConfig.unit];
+  const fmt = (px: number) =>
+    `${Math.round(px)} px ≈ ${(px / ppu).toFixed(1)} ${canvasConfig.unit}`;
   svgDraw
-    .text(`length(): ${Math.round(curve.length())} px`)
-    .font({ size: 11, family: 'sans-serif' })
+    .text(`length(): ${fmt(curveLength)}  (main curve)`)
+    .font({ size: 18, family: 'sans-serif' })
     .fill('black')
-    .move(width - 160, 30);
+    .move(30, 30);
+  svgDraw
+    .text(`pen travel: ${fmt(travelPx)}  (curve + offsets + ticks + split)`)
+    .font({ size: 18, family: 'sans-serif' })
+    .fill('black')
+    .move(30, 56);
 
   return svg;
 }
