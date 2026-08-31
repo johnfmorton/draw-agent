@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - 4×6 in and 6×4 in canvas presets (postcard/photo size) in the preset dropdown and New Artwork wizard
+- Secondhand Cursive lettering helper (`src/secondhand-cursive.ts`): typesets text via the Secondhand Cursive API and composes the stroke geometry into an artwork's SVG — `cursiveInCircle` (fill a circle with a margin), `cursiveAt` (place at a point, true physical size or scaled), plus `fetchCursive`/`withCursive`/`cursiveGroup` for custom layouts. Responses are cached per request so repeat renders are synchronous and stay off the API throttle; `penWidthMm` previews strokes at the real pen's line width. The API token is read from `VITE_SECONDHAND_CURSIVE_TOKEN` in `.env.local` (gitignored)
 
 ### Changed
 
