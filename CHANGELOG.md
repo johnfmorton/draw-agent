@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Annotation labels in the study artworks enlarged (8–14px → 14–20px) so they're readable at the preview's display scale
 - `curve-math-study` length label now converts px to the canvas's physical unit and reports total pen travel for everything drawn (curve, offsets, ticks, and split highlight)
 
+### Fixed
+
+- URL hash values are now validated on load: unknown dropdown options, non-numeric numbers, malformed points/rectangles, and bad canvas sizes or units are dropped (falling back to working values or file defaults) instead of flowing into app state, localStorage, and re-encoded URLs
+
 ## [1.2.0] - 2026-07-15
 
 ### Added

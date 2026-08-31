@@ -6,6 +6,7 @@ import type {
   CanvasConfig,
   CanvasUnit,
 } from '../controls/schema';
+import { PIXELS_PER_UNIT } from '../controls/schema';
 
 /**
  * URL state management.
@@ -26,26 +27,38 @@ export function parseUrlState(hash: string, schema: ControlSchema): UrlState {
   const artwork = params.get('artwork');
   const values: Record<string, unknown> = {};
 
-  // Parse control values
+  // Parse control values. Invalid values (stale dropdown options,
+  // non-numeric numbers, malformed points) are dropped so the value
+  // falls back to localStorage or the file default instead of flowing
+  // into state — and from there back into localStorage and the URL.
   for (const control of schema) {
     const rawValue = params.get(control.id);
     if (rawValue !== null) {
-      values[control.id] = parseValue(rawValue, control);
+      const parsed = parseValue(rawValue, control);
+      if (parsed !== undefined) {
+        values[control.id] = parsed;
+      }
     }
   }
 
-  // Parse canvas
+  // Parse canvas; malformed dimensions or an unknown unit invalidate it
   let canvas: CanvasConfig | null = null;
   const canvasWidth = params.get('cw');
   const canvasHeight = params.get('ch');
   const canvasUnit = params.get('cu');
 
   if (canvasWidth && canvasHeight && canvasUnit) {
-    canvas = {
-      width: parseFloat(canvasWidth),
-      height: parseFloat(canvasHeight),
-      unit: canvasUnit as CanvasUnit,
-    };
+    const width = parseFloat(canvasWidth);
+    const height = parseFloat(canvasHeight);
+    if (
+      Number.isFinite(width) &&
+      width > 0 &&
+      Number.isFinite(height) &&
+      height > 0 &&
+      canvasUnit in PIXELS_PER_UNIT
+    ) {
+      canvas = { width, height, unit: canvasUnit as CanvasUnit };
+    }
   }
 
   return { artwork, values, canvas };
@@ -92,34 +105,45 @@ export function updateUrl(hash: string, replace = true): void {
 
 /**
  * Parse a string value based on control type.
+ * Returns undefined when the value is invalid for the control (unknown
+ * dropdown option, non-finite number, incomplete point/rectangle), so
+ * the caller can skip it and let defaults apply.
  */
 function parseValue(raw: string, control: ControlDefinition): unknown {
   switch (control.type) {
     case 'slider':
     case 'numeric':
-    case 'seed':
-      return parseFloat(raw);
+    case 'seed': {
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : undefined;
+    }
 
     case 'toggle':
-      return raw === 'true' || raw === '1';
+      if (raw === 'true' || raw === '1') return true;
+      if (raw === 'false' || raw === '0') return false;
+      return undefined;
 
     case 'dropdown':
-      return raw;
+      return control.options.some((o) => o.value === raw) ? raw : undefined;
 
     case 'point2d':
     case 'vector': {
       const [x, y] = raw.split(',').map(Number);
-      return { x: x ?? 0, y: y ?? 0 };
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+      return { x, y };
     }
 
     case 'rectangle': {
       const [x, y, width, height] = raw.split(',').map(Number);
-      return {
-        x: x ?? 0,
-        y: y ?? 0,
-        width: width ?? 0,
-        height: height ?? 0,
-      };
+      if (
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(width) ||
+        !Number.isFinite(height)
+      ) {
+        return undefined;
+      }
+      return { x, y, width, height };
     }
 
     default:
