@@ -56,6 +56,9 @@ export function drawCalibrationMarks(
     el.setAttribute('y1', String(y1));
     el.setAttribute('x2', String(x2));
     el.setAttribute('y2', String(y2));
+    // Keep the stroke at screen width when a large canvas is scaled down
+    // to fit the preview; plotters follow the geometry, not the stroke.
+    el.setAttribute('vector-effect', 'non-scaling-stroke');
     group.appendChild(el);
   };
 

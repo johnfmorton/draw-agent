@@ -25,6 +25,7 @@ import type {
 import { PIXELS_PER_UNIT } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import { Bezier } from 'bezier-js';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Curve Math',
@@ -38,6 +39,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'point2d',
     id: 'start',
@@ -166,6 +174,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showHandles,
     showBBox,
     lineWidth,
+    showCalibration,
   } = values;
 
   const { svg, draw: svgDraw } = createCanvas(canvasConfig);
@@ -273,6 +282,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     .font({ size: 18, family: 'sans-serif' })
     .fill('black')
     .move(30, 56);
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
+  }
 
   return svg;
 }

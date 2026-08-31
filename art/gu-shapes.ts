@@ -25,6 +25,7 @@ import {
   distToSegment,
   pointsToPath,
 } from '@johnfmorton/generative-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Geometric Shapes',
@@ -38,6 +39,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'gridSize',
@@ -140,6 +148,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showDistanceLines,
     lineWidth,
     seed,
+    showCalibration,
   } = values;
 
   seedPRNG(seed.toString());
@@ -301,6 +310,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       .font({ size: 14, family: 'sans-serif' })
       .fill('black')
       .move(margin, height - margin + 42);
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

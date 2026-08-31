@@ -10,6 +10,7 @@ import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/s
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Flow Field',
@@ -23,6 +24,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'particles',
@@ -160,6 +168,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     angleOffset,
     flowBias,
     seed,
+    showCalibration,
   } = values;
 
   const random = createRandom(seed);
@@ -198,6 +207,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       // Build path using SVG.js polyline
       group.polyline(points);
     }
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

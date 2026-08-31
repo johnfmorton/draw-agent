@@ -24,6 +24,7 @@ import {
   createVoronoiDiagram,
   pointsToPath,
 } from '@johnfmorton/generative-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Procedural Grids',
@@ -38,6 +39,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'dropdown',
     id: 'gridType',
@@ -143,6 +151,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showInnerCircles,
     lineWidth,
     seed,
+    showCalibration,
   } = values;
 
   seedPRNG(seed.toString());
@@ -353,6 +362,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     .font({ size: 20, family: 'sans-serif', weight: 'bold' })
     .fill('black')
     .move(margin, 30);
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
+  }
 
   return svg;
 }

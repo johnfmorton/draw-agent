@@ -55,6 +55,8 @@ declare global {
   interface Window {
     /** Set after the wizard creates a file, until the HMR re-run lands. */
     __drawAgentPendingCreate?: { name: string; timer: number };
+    /** Preview refit observer; replaced on each HMR re-run of main.ts. */
+    __drawAgentPreviewObserver?: ResizeObserver;
   }
 }
 
@@ -69,6 +71,7 @@ let fileCanvas: CanvasConfig = { ...DEFAULT_CANVAS };
 
 // DOM elements
 const previewEl = document.getElementById('preview')!;
+const previewPaneEl = document.getElementById('preview-pane')!;
 const artworkCaptionEl = document.getElementById('artwork-caption')!;
 const controlListEl = document.getElementById('control-list')!;
 const artworkSelectorEl = document.getElementById('artwork-selector')!;
@@ -691,15 +694,56 @@ function renderPreview() {
     previewEl.innerHTML = '';
     previewEl.appendChild(svg);
 
-    // Apply pixel dimensions for display scaling
-    const pixels = canvasToPixels(currentCanvas);
-    svg.style.width = `${pixels.width}px`;
-    svg.style.height = `${pixels.height}px`;
+    previewSvgEl = svg;
+    fitPreviewSvg();
   } catch (e) {
     console.error('Draw error:', e);
+    previewSvgEl = null;
     previewEl.innerHTML = `<p class="error">Draw error: ${e}</p>`;
   }
 }
+
+/** The svg currently in the preview, for refitting on pane resize. */
+let previewSvgEl: SVGElement | null = null;
+
+/**
+ * Size the preview svg to fit the pane at the canvas's aspect ratio.
+ * CSS max-width/max-height clamp each axis independently, which distorts
+ * the element box and letterboxes the drawing inside it — worst on tall
+ * canvases, where the top of the artwork (calibration marks included)
+ * ended up hidden behind the header.
+ */
+function fitPreviewSvg() {
+  if (!previewSvgEl) return;
+
+  const pixels = canvasToPixels(currentCanvas);
+  const paneStyle = getComputedStyle(previewPaneEl);
+  const availWidth =
+    previewPaneEl.clientWidth -
+    parseFloat(paneStyle.paddingLeft) -
+    parseFloat(paneStyle.paddingRight);
+  const captionHeight = artworkCaptionEl.offsetHeight;
+  const availHeight =
+    previewPaneEl.clientHeight -
+    parseFloat(paneStyle.paddingTop) -
+    parseFloat(paneStyle.paddingBottom) -
+    (captionHeight > 0 ? captionHeight + 12 : 0); // 12 = wrapper gap
+
+  // Scale down to fit; never scale up past actual size
+  const scale = Math.min(
+    availWidth / pixels.width,
+    availHeight / pixels.height,
+    1
+  );
+  previewSvgEl.style.width = `${pixels.width * scale}px`;
+  previewSvgEl.style.height = `${pixels.height * scale}px`;
+}
+
+// Refit when the pane resizes (window resize, editor/console toggling).
+// main.ts re-executes on HMR, so replace any observer from a prior run.
+window.__drawAgentPreviewObserver?.disconnect();
+window.__drawAgentPreviewObserver = new ResizeObserver(fitPreviewSvg);
+window.__drawAgentPreviewObserver.observe(previewPaneEl);
 
 // Start the app
 init();

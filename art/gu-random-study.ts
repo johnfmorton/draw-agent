@@ -23,6 +23,7 @@ import {
   randomBias,
   randomSnap,
 } from '@johnfmorton/generative-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Random Study',
@@ -36,6 +37,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'count',
@@ -119,6 +127,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     maxRadius,
     lineWidth,
     seed,
+    showCalibration,
   } = values;
 
   // Seed the PRNG for reproducibility
@@ -231,6 +240,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         [shapeX - half, shapeY],
       ]);
     }
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

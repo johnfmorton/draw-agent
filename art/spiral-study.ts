@@ -11,6 +11,7 @@ import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/s
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
 import { createRawCanvas } from '../src/svg-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Spiral Study',
@@ -24,6 +25,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'turns',
@@ -79,7 +87,7 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { turns, lineWidth, noise, clockwise, lineCap, seed } = values;
+  const { turns, lineWidth, noise, clockwise, lineCap, seed, showCalibration } = values;
 
   const random = createRandom(seed);
   const { width, height } = canvasToPixels(canvasConfig);
@@ -123,5 +131,10 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   path.setAttribute('stroke-linecap', lineCap);
 
   svg.appendChild(path);
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
+  }
+
   return svg;
 }

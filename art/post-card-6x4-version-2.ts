@@ -28,17 +28,17 @@ export const canvas: CanvasConfig = {
 
 export const controls = [
   {
-    type: 'seed',
-    id: 'seed',
-    label: 'Seed',
-    default: 1548277227,
-  },
-  {
     type: 'toggle',
     id: 'showCalibration',
     label: 'Show calibration marks',
     description: 'Corner crosshairs for pen plotter calibration',
     default: true,
+  },
+  {
+    type: 'seed',
+    id: 'seed',
+    label: 'Seed',
+    default: 1548277227,
   },
 ] as const satisfies ControlSchema;
 

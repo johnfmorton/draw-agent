@@ -23,6 +23,7 @@ import { canvasToPixels } from '../src/controls/schema';
 import { createRandom } from '../src/random';
 import { createCanvas } from '../src/svg-utils';
 import { createNoise2D } from 'simplex-noise';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Noise Field',
@@ -36,6 +37,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'noiseScale',
@@ -120,6 +128,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showField,
     lineWidth,
     seed,
+    showCalibration,
   } = values;
 
   const { width, height } = canvasToPixels(canvasConfig);
@@ -180,6 +189,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     if (points.length > 1) {
       lineGroup.polyline(points);
     }
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

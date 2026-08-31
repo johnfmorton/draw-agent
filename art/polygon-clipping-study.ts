@@ -34,6 +34,7 @@ import { seedPRNG, random } from '@johnfmorton/generative-utils';
 // named bindings in its .d.ts don't exist at runtime under Vite).
 import polygonClipping from 'polygon-clipping';
 import type { MultiPolygon, Polygon, Ring, Pair } from 'polygon-clipping';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Polygon Clipping',
@@ -47,6 +48,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'shapes',
@@ -228,6 +236,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showHidden,
     lineWidth,
     seed,
+    showCalibration,
   } = values;
 
   seedPRNG(seed.toString());
@@ -308,6 +317,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         }
       }
     }
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

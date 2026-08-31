@@ -11,6 +11,7 @@ import type {
 import { canvasToPixels } from '../src/controls/schema';
 import { seedPRNG, random } from '@johnfmorton/generative-utils';
 import { createCanvas } from '../src/svg-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Fall Leaves',
@@ -24,6 +25,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'seed',
     id: 'seed',
@@ -71,7 +79,7 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, topLeftStart, topRightStart, x_pos, y_pos } = values;
+  const { seed, topLeftStart, topRightStart, x_pos, y_pos, showCalibration } = values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -171,6 +179,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   // const curve = new Bezier(0, height / 2, width / 2, 0, width, height / 2);
   // const points = curve.getLUT(50); // points along the curve
   // const offset = curve.offset(10); // parallel curve(s) for multi-pass strokes
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
+  }
 
   return svg;
 }

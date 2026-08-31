@@ -14,6 +14,7 @@ import type {
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 
 export const meta = {
   title: 'Grid Pattern',
@@ -27,6 +28,13 @@ export const canvas: CanvasConfig = {
 };
 
 export const controls = [
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  },
   {
     type: 'slider',
     id: 'cols',
@@ -110,6 +118,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showGrid,
     pattern,
     seed,
+    showCalibration,
   } = values;
 
   const random = createRandom(seed);
@@ -198,6 +207,11 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
           break;
       }
     }
+  }
+
+  // Corner crosshairs for aligning the plotter pen with the paper.
+  if (showCalibration) {
+    drawCalibrationMarks(svg, canvasConfig);
   }
 
   return svg;

@@ -460,12 +460,13 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
   const description = options.description ? oneLine(options.description) : '';
 
   // Every generated artwork gets the calibration toggle unless the
-  // caller already provided one.
+  // caller already provided one. It goes first so it's always at the
+  // top of the control panel.
   const controls: readonly ControlDefinition[] = options.controls.some(
     (c) => c.id === 'showCalibration'
   )
     ? options.controls
-    : [...options.controls, makeCalibrationControl()];
+    : [makeCalibrationControl(), ...options.controls];
 
   const seedControl = controls.find((c) => c.type === 'seed');
   const seedMode: SeedMode = seedControl
