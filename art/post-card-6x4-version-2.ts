@@ -13,6 +13,7 @@ import type {
 import { canvasToPixels } from '../src/controls/schema';
 import { seedPRNG, random } from '@johnfmorton/generative-utils';
 import { createCanvas } from '../src/svg-utils';
+import { drawCalibrationMarks } from '../src/calibration';
 import { cursiveInCircle } from '../src/secondhand-cursive';
 
 export const meta = {
@@ -33,23 +34,10 @@ export const controls = [
     default: 1548277227,
   },
   {
-    type: 'point2d',
-    id: 'topLeft',
-    label: 'Top Left',
-    description: 'top left corner of paper for calibration',
-    default: { x: 0, y: 0 },
-  },
-  {
-    type: 'point2d',
-    id: 'bottomRight',
-    label: 'Bottom Right',
-    description: 'bottom right corner of paper for calibration',
-    default: { x: 576, y: 384 },
-  },
-  {
     type: 'toggle',
     id: 'showCalibration',
     label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
     default: true,
   },
 ] as const satisfies ControlSchema;
@@ -57,7 +45,7 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, topLeft, bottomRight, showCalibration } = values;
+  const { seed, showCalibration } = values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -67,40 +55,27 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const cy = height / 2;
   const radius = random(0.15, 0.3) * Math.min(width, height);
 
-  // Calibration crosshairs: a red + at each paper corner. Top-right and
-  // bottom-left derive from the two calibration points.
-  // line() takes x1, y1, x2, y2.
-  const markArm = 5;
-  const corners = [
-    topLeft,
-    { x: bottomRight.x, y: topLeft.y },
-    bottomRight,
-    { x: topLeft.x, y: bottomRight.y },
-  ];
-  const marks = draw.group().stroke({ color: '#F00', width: 3 }).fill('none');
-
+  // Corner crosshairs derived from the canvas size — resize the canvas
+  // (any unit) and the marks follow.
   if (showCalibration) {
-    for (const p of corners) {
-      marks.line(p.x - markArm, p.y, p.x + markArm, p.y);
-      marks.line(p.x, p.y - markArm, p.x, p.y + markArm);
-    }
+    drawCalibrationMarks(svg, canvasConfig);
+  } else {
+    draw
+      .circle(radius * 2)
+      .cx(cx)
+      .cy(cy)
+      .fill('none')
+      .stroke({ color: '#000', width: 1 });
+
+    // Typeset "test" and fit it inside the circle with a small margin.
+    // penWidthMm previews the strokes at the real pen's line width; the
+    // path geometry is identical regardless of the API's lineweight.
+    cursiveInCircle(
+      svg,
+      { text: 'test', seed },
+      { cx, cy, radius, margin: 0.85, penWidthMm: 0.3 },
+    );
   }
-
-  draw
-    .circle(radius * 2)
-    .cx(cx)
-    .cy(cy)
-    .fill('none')
-    .stroke({ color: '#000', width: 1 });
-
-  // Typeset "test" and fit it inside the circle with a small margin.
-  // penWidthMm previews the strokes at the real pen's line width; the
-  // path geometry is identical regardless of the API's lineweight.
-  cursiveInCircle(
-    svg,
-    { text: 'test', seed },
-    { cx, cy, radius, margin: 0.85, penWidthMm: 0.3 },
-  );
 
   // --- Randomness (@johnfmorton/generative-utils) ---
   // import { randomBias, randomSnap } from '@johnfmorton/generative-utils';

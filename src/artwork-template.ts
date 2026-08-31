@@ -16,6 +16,7 @@ import type {
   CanvasConfig,
   ControlDefinition,
   SeedControl,
+  ToggleControl,
 } from './controls/schema';
 
 export type ArtworkApi = 'svgjs' | 'raw';
@@ -149,6 +150,21 @@ export function titleFromName(name: string): string {
 /** The standard seed control included in generated artworks. */
 export function makeSeedControl(defaultSeed: number): SeedControl {
   return { type: 'seed', id: 'seed', label: 'Seed', default: defaultSeed };
+}
+
+/**
+ * The standard calibration toggle included in generated artworks.
+ * Pairs with drawCalibrationMarks (src/calibration.ts), which derives
+ * corner crosshairs from the canvas size for pen plotter alignment.
+ */
+export function makeCalibrationControl(): ToggleControl {
+  return {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    description: 'Corner crosshairs for pen plotter calibration',
+    default: true,
+  };
 }
 
 /** Escape a string for use inside a single-quoted TS literal. */
@@ -439,9 +455,17 @@ function helperBlock(id: HelperGroupId, ctx: TemplateContext): string[] {
  * Generate the full source of a new artwork file.
  */
 export function generateArtworkSource(options: ArtworkTemplateOptions): string {
-  const { title, canvas, api, controls } = options;
+  const { title, canvas, api } = options;
   const helpers = options.helpers ?? [];
   const description = options.description ? oneLine(options.description) : '';
+
+  // Every generated artwork gets the calibration toggle unless the
+  // caller already provided one.
+  const controls: readonly ControlDefinition[] = options.controls.some(
+    (c) => c.id === 'showCalibration'
+  )
+    ? options.controls
+    : [...options.controls, makeCalibrationControl()];
 
   const seedControl = controls.find((c) => c.type === 'seed');
   const seedMode: SeedMode = seedControl
@@ -467,6 +491,10 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
       ? `import { createCanvas } from '../src/svg-utils';`
       : `import { createRawCanvas } from '../src/svg-utils';`
   );
+  const calibrationControl = controls.find((c) => c.id === 'showCalibration');
+  if (calibrationControl) {
+    imports.push(`import { drawCalibrationMarks } from '../src/calibration';`);
+  }
 
   // --- draw() body ---
   const body: string[] = [];
@@ -488,6 +516,17 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
       : `  const svg = createRawCanvas(canvasConfig);`
   );
   body.push('');
+
+  if (calibrationControl) {
+    body.push(
+      `  // Corner crosshairs for aligning the plotter pen with the paper.`,
+      `  // Derived from the canvas size — any paper size, any unit.`,
+      `  if (${calibrationControl.id}) {`,
+      `    drawCalibrationMarks(svg, canvasConfig);`,
+      `  }`,
+      ''
+    );
+  }
 
   // Starter shape: a centered circle (stroke only — plotter-friendly).
   // The seed drives the radius so the seed control demonstrably works.
@@ -524,7 +563,10 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
   // Keep non-seed control values "used" so noUnusedLocals passes until
   // the artist wires them into the drawing.
   const seedUsed = seedMode.kind !== 'none';
-  const unusedIds = ids.filter((id) => !(seedUsed && id === seedControl?.id));
+  const unusedIds = ids.filter(
+    (id) =>
+      !(seedUsed && id === seedControl?.id) && id !== calibrationControl?.id
+  );
   if (unusedIds.length > 0) {
     body.push(
       '',
