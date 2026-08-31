@@ -14,6 +14,7 @@ import { canvasToPixels } from '../src/controls/schema';
 import { seedPRNG, random } from '@johnfmorton/generative-utils';
 import { createCanvas } from '../src/svg-utils';
 import { drawCalibrationMarks } from '../src/calibration';
+import { applyBorderMask } from '../src/border-mask';
 import { cursiveInCircle } from '../src/secondhand-cursive';
 
 export const meta = {
@@ -35,6 +36,29 @@ export const controls = [
     default: true,
   },
   {
+    type: 'dropdown',
+    id: 'borderMode',
+    label: 'Border Mask',
+    description:
+      'Clip strokes to an inset border so the pen never runs off the paper',
+    options: [
+      { value: 'off', label: 'Off' },
+      { value: 'mask', label: 'Mask only' },
+      { value: 'border', label: 'Mask + border' },
+    ],
+    default: 'border',
+  },
+  {
+    type: 'slider',
+    id: 'borderInset',
+    label: 'Border Inset',
+    description: 'How far the mask sits inside the canvas edge, in px',
+    min: 0,
+    max: 96,
+    step: 1,
+    default: 24,
+  },
+  {
     type: 'seed',
     id: 'seed',
     label: 'Seed',
@@ -45,7 +69,7 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, showCalibration } = values;
+  const { seed, showCalibration, borderMode, borderInset } = values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -75,6 +99,16 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       { text: 'test', seed },
       { cx, cy, radius, margin: 0.85, penWidthMm: 0.3 },
     );
+  }
+
+  // Clip everything drawn so far to the safe area, so the pen physically
+  // stays on the page. Calibration marks are exempt (they align to paper
+  // corners), so this can come before or after them.
+  if (borderMode !== 'off') {
+    applyBorderMask(svg, canvasConfig, {
+      inset: borderInset,
+      drawBorder: borderMode === 'border',
+    });
   }
 
   // --- Randomness (@johnfmorton/generative-utils) ---

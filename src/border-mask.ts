@@ -57,9 +57,14 @@ let clipIdCounter = 0;
 export function applyBorderMask(
   svg: SVGElement,
   canvasConfig: CanvasConfig,
-  options: BorderMaskOptions = {}
+  options: BorderMaskOptions = {},
 ): SVGRectElement | null {
-  const { inset = 20, drawBorder = false, strokeWidth = 1, color = '#000' } = options;
+  const {
+    inset = 20,
+    drawBorder = false,
+    strokeWidth = 1,
+    color = '#000',
+  } = options;
   const { width, height } = canvasToPixels(canvasConfig);
 
   const bounds: Bounds = {
@@ -70,7 +75,9 @@ export function applyBorderMask(
   };
 
   const shapes = Array.from(
-    svg.querySelectorAll<SVGElement>('line, polyline, polygon, rect, path, circle, ellipse')
+    svg.querySelectorAll<SVGElement>(
+      'line, polyline, polygon, rect, path, circle, ellipse',
+    ),
   );
 
   const unclippable: SVGElement[] = [];
@@ -101,11 +108,13 @@ export function applyBorderMask(
 
   if (unclippable.length > 0) {
     applyVisualClip(svg, unclippable, bounds);
-    const tags = [...new Set(unclippable.map((el) => `<${el.tagName}>`))].join(', ');
+    const tags = [...new Set(unclippable.map((el) => `<${el.tagName}>`))].join(
+      ', ',
+    );
     console.warn(
       `applyBorderMask: ${unclippable.length} element(s) (${tags}) can't be geometrically clipped; ` +
         'applied a visual clip-path instead. The preview is correct, but a plotter may still ' +
-        'draw them past the border unless your plotting toolchain applies clips (e.g. vpype crop).'
+        'draw them past the border unless your plotting toolchain applies clips (e.g. vpype crop).',
     );
   }
 
@@ -138,7 +147,11 @@ function canClipGeometrically(el: SVGElement, svg: SVGElement): boolean {
   const tag = el.tagName;
   if (tag === 'path' || tag === 'circle' || tag === 'ellipse') return false;
 
-  for (let node: Element | null = el; node && node !== svg; node = node.parentElement) {
+  for (
+    let node: Element | null = el;
+    node && node !== svg;
+    node = node.parentElement
+  ) {
     if (node.getAttribute('transform')) return false;
   }
 
@@ -146,7 +159,8 @@ function canClipGeometrically(el: SVGElement, svg: SVGElement): boolean {
     const fill = el.getAttribute('fill');
     if (fill && fill !== 'none') return false;
   }
-  if (tag === 'rect' && (el.getAttribute('rx') || el.getAttribute('ry'))) return false;
+  if (tag === 'rect' && (el.getAttribute('rx') || el.getAttribute('ry')))
+    return false;
 
   return true;
 }
@@ -157,7 +171,7 @@ function clipSegment(
   y1: number,
   x2: number,
   y2: number,
-  b: Bounds
+  b: Bounds,
 ): [number, number, number, number] | null {
   let t0 = 0;
   let t1 = 1;
@@ -193,7 +207,13 @@ function clipChain(points: Point[], b: Bounds): Point[][] {
   let run: Point[] = [];
 
   for (let i = 0; i < points.length - 1; i++) {
-    const clipped = clipSegment(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, b);
+    const clipped = clipSegment(
+      points[i].x,
+      points[i].y,
+      points[i + 1].x,
+      points[i + 1].y,
+      b,
+    );
     if (!clipped) {
       if (run.length > 1) runs.push(run);
       run = [];
@@ -202,7 +222,11 @@ function clipChain(points: Point[], b: Bounds): Point[][] {
 
     const [cx1, cy1, cx2, cy2] = clipped;
     const last = run[run.length - 1];
-    if (last && Math.abs(last.x - cx1) < EPSILON && Math.abs(last.y - cy1) < EPSILON) {
+    if (
+      last &&
+      Math.abs(last.x - cx1) < EPSILON &&
+      Math.abs(last.y - cy1) < EPSILON
+    ) {
       run.push({ x: cx2, y: cy2 });
     } else {
       if (run.length > 1) runs.push(run);
@@ -293,7 +317,11 @@ function clipRectElement(el: SVGRectElement, b: Bounds): void {
  * other attributes (and the position in the tree, so styles inherited
  * from a parent group still apply). Removed entirely when nothing is left.
  */
-function replaceWithRuns(el: SVGElement, runs: Point[][], dropAttrs: string[]): void {
+function replaceWithRuns(
+  el: SVGElement,
+  runs: Point[][],
+  dropAttrs: string[],
+): void {
   const parent = el.parentNode;
   if (!parent) return;
 
@@ -310,8 +338,25 @@ function replaceWithRuns(el: SVGElement, runs: Point[][], dropAttrs: string[]): 
   el.remove();
 }
 
-/** Visual-only fallback for shapes whose geometry can't be rewritten. */
-function applyVisualClip(svg: SVGElement, elements: SVGElement[], b: Bounds): void {
+/**
+ * Visual-only fallback for shapes whose geometry can't be rewritten.
+ *
+ * The clip rectangle is expressed in canvas coordinates, so it must be
+ * referenced from canvas space: clip-path userSpaceOnUse units follow
+ * the *referencing* element's user space, so hanging the clip on an
+ * element inside a transformed group (e.g. Secondhand Cursive
+ * lettering, which lives under a translate+scale) would re-interpret
+ * the rectangle in that group's local coordinates and clip a
+ * completely different region of the drawing. The clip therefore goes
+ * on each affected top-level node — via an untransformed wrapper <g>
+ * when the node itself carries a transform — so descendants' transforms
+ * stay inside the clip's frame.
+ */
+function applyVisualClip(
+  svg: SVGElement,
+  elements: SVGElement[],
+  b: Bounds,
+): void {
   const id = `border-mask-clip-${clipIdCounter++}`;
 
   let defs = svg.querySelector('defs');
@@ -330,7 +375,29 @@ function applyVisualClip(svg: SVGElement, elements: SVGElement[], b: Bounds): vo
   clipPath.appendChild(rect);
   defs.appendChild(clipPath);
 
+  // Clip each element's top-level ancestor (direct child of the svg),
+  // deduplicated — clipping the whole node also covers its already
+  // geometrically-clipped siblings, which the mask leaves inside the
+  // bounds anyway.
+  const topLevel = new Set<SVGElement>();
   for (const el of elements) {
-    el.setAttribute('clip-path', `url(#${id})`);
+    let node = el;
+    while (node.parentNode instanceof SVGElement && node.parentNode !== svg) {
+      node = node.parentNode;
+    }
+    topLevel.add(node);
+  }
+
+  for (const node of topLevel) {
+    if (node.getAttribute('transform')) {
+      // A transform on the clipped node itself would drag the clip
+      // rectangle along; hang the clip on an untransformed wrapper.
+      const wrapper = document.createElementNS(SVG_NS, 'g');
+      wrapper.setAttribute('clip-path', `url(#${id})`);
+      svg.insertBefore(wrapper, node);
+      wrapper.appendChild(node);
+    } else {
+      node.setAttribute('clip-path', `url(#${id})`);
+    }
   }
 }

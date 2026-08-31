@@ -15,7 +15,9 @@
 import type {
   CanvasConfig,
   ControlDefinition,
+  DropdownControl,
   SeedControl,
+  SliderControl,
   ToggleControl,
 } from './controls/schema';
 
@@ -165,6 +167,40 @@ export function makeCalibrationControl(): ToggleControl {
     description: 'Corner crosshairs for pen plotter calibration',
     default: true,
   };
+}
+
+/**
+ * The standard border-mask controls included in generated artworks.
+ * Pair with applyBorderMask (src/border-mask.ts), which clips the drawn
+ * geometry to a rectangle inset from the canvas edge so the pen never
+ * runs off the paper; "Mask + border" also plots the rectangle itself.
+ */
+export function makeBorderControls(): [DropdownControl, SliderControl] {
+  return [
+    {
+      type: 'dropdown',
+      id: 'borderMode',
+      label: 'Border Mask',
+      description:
+        'Clip strokes to an inset border so the pen never runs off the paper',
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'mask', label: 'Mask only' },
+        { value: 'border', label: 'Mask + border' },
+      ],
+      default: 'border',
+    },
+    {
+      type: 'slider',
+      id: 'borderInset',
+      label: 'Border Inset',
+      description: 'How far the mask sits inside the canvas edge, in px',
+      min: 0,
+      max: 96,
+      step: 1,
+      default: 24,
+    },
+  ];
 }
 
 /** Escape a string for use inside a single-quoted TS literal. */
@@ -459,14 +495,16 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
   const helpers = options.helpers ?? [];
   const description = options.description ? oneLine(options.description) : '';
 
-  // Every generated artwork gets the calibration toggle unless the
-  // caller already provided one. It goes first so it's always at the
-  // top of the control panel.
-  const controls: readonly ControlDefinition[] = options.controls.some(
-    (c) => c.id === 'showCalibration'
-  )
-    ? options.controls
-    : [makeCalibrationControl(), ...options.controls];
+  // Every generated artwork gets the calibration toggle and the border
+  // mask controls unless the caller already provided them. They go
+  // first so they're always at the top of the control panel.
+  let controls: readonly ControlDefinition[] = options.controls;
+  if (!controls.some((c) => c.id === 'borderMode' || c.id === 'borderInset')) {
+    controls = [...makeBorderControls(), ...controls];
+  }
+  if (!controls.some((c) => c.id === 'showCalibration')) {
+    controls = [makeCalibrationControl(), ...controls];
+  }
 
   const seedControl = controls.find((c) => c.type === 'seed');
   const seedMode: SeedMode = seedControl
@@ -495,6 +533,11 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
   const calibrationControl = controls.find((c) => c.id === 'showCalibration');
   if (calibrationControl) {
     imports.push(`import { drawCalibrationMarks } from '../src/calibration';`);
+  }
+  const borderModeControl = controls.find((c) => c.id === 'borderMode');
+  const borderInsetControl = controls.find((c) => c.id === 'borderInset');
+  if (borderModeControl && borderInsetControl) {
+    imports.push(`import { applyBorderMask } from '../src/border-mask';`);
   }
 
   // --- draw() body ---
@@ -566,7 +609,10 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
   const seedUsed = seedMode.kind !== 'none';
   const unusedIds = ids.filter(
     (id) =>
-      !(seedUsed && id === seedControl?.id) && id !== calibrationControl?.id
+      !(seedUsed && id === seedControl?.id) &&
+      id !== calibrationControl?.id &&
+      id !== borderModeControl?.id &&
+      id !== borderInsetControl?.id
   );
   if (unusedIds.length > 0) {
     body.push(
@@ -578,6 +624,21 @@ export function generateArtworkSource(options: ArtworkTemplateOptions): string {
 
   for (const helperId of helpers) {
     body.push('', ...helperBlock(helperId, ctx));
+  }
+
+  if (borderModeControl && borderInsetControl) {
+    body.push(
+      '',
+      `  // Clip everything drawn so far to the safe area, so the pen physically`,
+      `  // stays on the page. Calibration marks are exempt (they align to paper`,
+      `  // corners), so this can come before or after them.`,
+      `  if (${borderModeControl.id} !== 'off') {`,
+      `    applyBorderMask(svg, canvasConfig, {`,
+      `      inset: ${borderInsetControl.id},`,
+      `      drawBorder: ${borderModeControl.id} === 'border',`,
+      `    });`,
+      `  }`
+    );
   }
 
   body.push('', `  return svg;`);

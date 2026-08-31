@@ -12,6 +12,7 @@ import { canvasToPixels } from '../src/controls/schema';
 import { seedPRNG, random } from '@johnfmorton/generative-utils';
 import { createCanvas } from '../src/svg-utils';
 import { drawCalibrationMarks } from '../src/calibration';
+import { applyBorderMask } from '../src/border-mask';
 
 export const meta = {
   title: 'Fall Leaves',
@@ -31,6 +32,29 @@ export const controls = [
     label: 'Show calibration marks',
     description: 'Corner crosshairs for pen plotter calibration',
     default: true,
+  },
+  {
+    type: 'dropdown',
+    id: 'borderMode',
+    label: 'Border Mask',
+    description:
+      'Clip strokes to an inset border so the pen never runs off the paper',
+    options: [
+      { value: 'off', label: 'Off' },
+      { value: 'mask', label: 'Mask only' },
+      { value: 'border', label: 'Mask + border' },
+    ],
+    default: 'border',
+  },
+  {
+    type: 'slider',
+    id: 'borderInset',
+    label: 'Border Inset',
+    description: 'How far the mask sits inside the canvas edge, in px',
+    min: 0,
+    max: 96,
+    step: 1,
+    default: 24,
   },
   {
     type: 'seed',
@@ -79,7 +103,16 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, topLeftStart, topRightStart, x_pos, y_pos, showCalibration } = values;
+  const {
+    seed,
+    topLeftStart,
+    topRightStart,
+    x_pos,
+    y_pos,
+    showCalibration,
+    borderMode,
+    borderInset,
+  } = values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -179,6 +212,16 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   // const curve = new Bezier(0, height / 2, width / 2, 0, width, height / 2);
   // const points = curve.getLUT(50); // points along the curve
   // const offset = curve.offset(10); // parallel curve(s) for multi-pass strokes
+
+  // Clip everything drawn so far to the safe area, so the pen physically
+  // stays on the page. Calibration marks are exempt (they align to paper
+  // corners), so this can come before or after them.
+  if (borderMode !== 'off') {
+    applyBorderMask(svg, canvasConfig, {
+      inset: borderInset,
+      drawBorder: borderMode === 'border',
+    });
+  }
 
   // Corner crosshairs for aligning the plotter pen with the paper.
   if (showCalibration) {

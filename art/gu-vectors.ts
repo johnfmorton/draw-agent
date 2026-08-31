@@ -38,6 +38,7 @@ import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
 import { seedPRNG, random, vec2 } from '@johnfmorton/generative-utils';
 import { drawCalibrationMarks } from '../src/calibration';
+import { applyBorderMask } from '../src/border-mask';
 
 export const meta = {
   title: 'Vector Operations',
@@ -58,6 +59,29 @@ export const controls = [
     label: 'Show calibration marks',
     description: 'Corner crosshairs for pen plotter calibration',
     default: true,
+  },
+  {
+    type: 'dropdown',
+    id: 'borderMode',
+    label: 'Border Mask',
+    description:
+      'Clip strokes to an inset border so the pen never runs off the paper',
+    options: [
+      { value: 'off', label: 'Off' },
+      { value: 'mask', label: 'Mask only' },
+      { value: 'border', label: 'Mask + border' },
+    ],
+    default: 'border',
+  },
+  {
+    type: 'slider',
+    id: 'borderInset',
+    label: 'Border Inset',
+    description: 'How far the mask sits inside the canvas edge, in px',
+    min: 0,
+    max: 96,
+    step: 1,
+    default: 24,
   },
   {
     type: 'slider',
@@ -156,6 +180,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     lineWidth,
     seed,
     showCalibration,
+    borderMode,
+    borderInset,
   } = values;
 
   seedPRNG(seed.toString());
@@ -372,6 +398,16 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     .font({ size: 14, family: 'sans-serif' })
     .fill('black')
     .move(margin, 25);
+
+  // Clip everything drawn so far to the safe area, so the pen physically
+  // stays on the page. Calibration marks are exempt (they align to paper
+  // corners), so this can come before or after them.
+  if (borderMode !== 'off') {
+    applyBorderMask(svg, canvasConfig, {
+      inset: borderInset,
+      drawBorder: borderMode === 'border',
+    });
+  }
 
   // Corner crosshairs for aligning the plotter pen with the paper.
   if (showCalibration) {
