@@ -2,6 +2,7 @@ import {
   type CanvasConfig,
   type CanvasUnit,
   CANVAS_PRESETS,
+  convertCanvasUnit,
   formatCanvasSize,
 } from './schema';
 
@@ -112,7 +113,9 @@ export function createCanvasControls(
 
   unitSelect.addEventListener('change', () => {
     presetSelect.value = '';
-    onChange({ ...canvas, unit: unitSelect.value as CanvasUnit });
+    // Convert dimensions so the physical size stays the same
+    // (6×4 in becomes 152.4×101.6 mm, not 6×4 mm)
+    onChange(convertCanvasUnit(canvas, unitSelect.value as CanvasUnit));
   });
 
   // Reset button (shows when different from file)

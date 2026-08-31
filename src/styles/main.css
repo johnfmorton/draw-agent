@@ -228,7 +228,7 @@ select:focus {
 }
 
 .canvas-dimension {
-  width: 60px;
+  width: 88px;
   padding: 6px 8px;
   background: var(--bg-control);
   border: 1px solid var(--border);

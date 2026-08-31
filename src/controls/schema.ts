@@ -47,6 +47,29 @@ export const CANVAS_PRESETS: Record<string, CanvasConfig> = {
   '12×12 in': { width: 12, height: 12, unit: 'in' },
 };
 
+/** Decimal places to keep when converting dimensions into each unit */
+const UNIT_DECIMALS: Record<CanvasUnit, number> = {
+  in: 4,
+  cm: 3,
+  mm: 2,
+  px: 1,
+};
+
+/**
+ * Convert a canvas to a different unit, preserving physical size.
+ * Rounded per unit so round trips (e.g. mm → in → mm) stay stable.
+ */
+export function convertCanvasUnit(
+  canvas: CanvasConfig,
+  unit: CanvasUnit
+): CanvasConfig {
+  if (unit === canvas.unit) return { ...canvas };
+  const scale = PIXELS_PER_UNIT[canvas.unit] / PIXELS_PER_UNIT[unit];
+  const factor = 10 ** UNIT_DECIMALS[unit];
+  const convert = (v: number) => Math.round(v * scale * factor) / factor;
+  return { width: convert(canvas.width), height: convert(canvas.height), unit };
+}
+
 /**
  * Convert canvas dimensions to pixels.
  */

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Switching the canvas unit dropdown now converts the width/height values so the physical size is preserved (6×4 in becomes 152.4×101.6 mm instead of 6×4 mm); the width/height inputs are wider so converted values display without clipping
 - `gu-grids` control labels now name the mode they affect (e.g. "Noise: Scale", "Quadtree/Voronoi: Points") with tooltip descriptions, making it clear why a control has no visible effect in the current grid mode
 - Annotation labels in the study artworks enlarged (8–14px → 14–20px) so they're readable at the preview's display scale
 - `curve-math-study` length label now converts px to the canvas's physical unit and reports total pen travel for everything drawn (curve, offsets, ticks, and split highlight)
