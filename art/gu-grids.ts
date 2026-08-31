@@ -52,7 +52,8 @@ export const controls = [
   {
     type: 'slider',
     id: 'resolution',
-    label: 'Resolution',
+    label: 'Noise: Resolution',
+    description: 'Cell density of the noise grid (noise mode only)',
     min: 8,
     max: 40,
     step: 2,
@@ -61,7 +62,8 @@ export const controls = [
   {
     type: 'slider',
     id: 'pointCount',
-    label: 'Point Count',
+    label: 'Quadtree/Voronoi: Points',
+    description: 'Seed points for subdivision and tessellation (unused in noise mode)',
     min: 10,
     max: 80,
     step: 5,
@@ -70,7 +72,8 @@ export const controls = [
   {
     type: 'slider',
     id: 'relaxIterations',
-    label: 'Voronoi Relaxation',
+    label: 'Voronoi: Relaxation',
+    description: 'Lloyd relaxation iterations (voronoi mode only)',
     min: 0,
     max: 15,
     step: 1,
@@ -79,7 +82,8 @@ export const controls = [
   {
     type: 'slider',
     id: 'noiseScale',
-    label: 'Noise Scale',
+    label: 'Noise: Scale',
+    description: 'Noise frequency (noise mode only)',
     min: 0.005,
     max: 0.05,
     step: 0.005,
@@ -88,7 +92,8 @@ export const controls = [
   {
     type: 'slider',
     id: 'qtLevels',
-    label: 'Quadtree Levels',
+    label: 'Quadtree: Levels',
+    description: 'Maximum subdivision depth (quadtree mode only)',
     min: 2,
     max: 6,
     step: 1,
@@ -103,7 +108,8 @@ export const controls = [
   {
     type: 'toggle',
     id: 'showInnerCircles',
-    label: 'Show Inner Circles',
+    label: 'Quadtree/Voronoi: Inner Circles',
+    description: 'Largest circle inside each cell (unused in noise mode)',
     default: true,
   },
   {
