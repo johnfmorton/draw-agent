@@ -61,10 +61,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const cy = height / 2;
   const radius = random(0.15, 0.3) * Math.min(width, height);
 
-
   // Calibration crosshairs: a red + at each paper-corner point.
   // line() takes x1, y1, x2, y2.
-  const markArm = 12;
+  const markArm = 5;
   const marks = draw.group().stroke({ color: '#F00', width: 1 }).fill('none');
   for (const p of [topLeft, bottomRight]) {
     marks.line(p.x - markArm, p.y, p.x + markArm, p.y);
