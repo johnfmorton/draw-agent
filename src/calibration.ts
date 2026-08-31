@@ -32,14 +32,16 @@ export function drawCalibrationMarks(
   canvasConfig: CanvasConfig,
   options: CalibrationOptions = {}
 ): SVGGElement {
-  const { arm = 5, strokeWidth = 3, color = '#F00' } = options;
+  const { arm = 3, strokeWidth = 1, color = '#F00' } = options;
   const { width, height } = canvasToPixels(canvasConfig);
 
+  const inset = 8;
+
   const corners = [
-    { x: 0, y: 0 },
-    { x: width, y: 0 },
-    { x: width, y: height },
-    { x: 0, y: height },
+    { x: 0 + inset, y: 0 + inset },
+    { x: width - inset, y: 0 + inset },
+    { x: width - inset, y: height - inset },
+    { x: 0 + inset , y: height - inset },
   ];
 
   const group = document.createElementNS(SVG_NS, 'g');
