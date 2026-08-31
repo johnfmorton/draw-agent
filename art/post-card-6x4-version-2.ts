@@ -44,14 +44,20 @@ export const controls = [
     id: 'bottomRight',
     label: 'Bottom Right',
     description: 'bottom right corner of paper for calibration',
-    default: { x: 576, y: 384 }, // 6in x 4in at 96 DPI
+    default: { x: 576, y: 384 },
+  },
+  {
+    type: 'toggle',
+    id: 'showCalibration',
+    label: 'Show calibration marks',
+    default: true,
   },
 ] as const satisfies ControlSchema;
 
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, topLeft, bottomRight } = values;
+  const { seed, topLeft, bottomRight, showCalibration } = values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -61,13 +67,23 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const cy = height / 2;
   const radius = random(0.15, 0.3) * Math.min(width, height);
 
-  // Calibration crosshairs: a red + at each paper-corner point.
+  // Calibration crosshairs: a red + at each paper corner. Top-right and
+  // bottom-left derive from the two calibration points.
   // line() takes x1, y1, x2, y2.
   const markArm = 5;
-  const marks = draw.group().stroke({ color: '#F00', width: 1 }).fill('none');
-  for (const p of [topLeft, bottomRight]) {
-    marks.line(p.x - markArm, p.y, p.x + markArm, p.y);
-    marks.line(p.x, p.y - markArm, p.x, p.y + markArm);
+  const corners = [
+    topLeft,
+    { x: bottomRight.x, y: topLeft.y },
+    bottomRight,
+    { x: topLeft.x, y: bottomRight.y },
+  ];
+  const marks = draw.group().stroke({ color: '#F00', width: 3 }).fill('none');
+
+  if (showCalibration) {
+    for (const p of corners) {
+      marks.line(p.x - markArm, p.y, p.x + markArm, p.y);
+      marks.line(p.x, p.y - markArm, p.x, p.y + markArm);
+    }
   }
 
   draw
