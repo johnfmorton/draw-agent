@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - URL hash values are now validated on load: unknown dropdown options, non-numeric numbers, malformed points/rectangles, and bad canvas sizes or units are dropped (falling back to working values or file defaults) instead of flowing into app state, localStorage, and re-encoded URLs
+- `post-card-6x4-version-2` calibration marks: transposed line coordinates produced zero-length lines; each corner point now draws a red crosshair, and Bottom Right defaults to the canvas's actual bottom-right corner
 
 ## [1.2.0] - 2026-07-15
 
