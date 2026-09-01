@@ -17,6 +17,8 @@ declare module 'bezier-js' {
 
     points: BezierPoint[];
 
+    /** t-values (0..1) where the curve crosses the given line segment. */
+    intersects(line: { p1: BezierPoint; p2: BezierPoint }): number[];
     /** Point on the curve at t (0..1). */
     get(t: number): BezierPoint;
     /** Evenly-stepped lookup table of points along the curve. */

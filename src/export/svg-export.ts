@@ -2,8 +2,13 @@
  * SVG export functionality for pen plotter output.
  */
 
-import { extractPaths, optimizePaths, generateCleanSVG } from './axidraw-optimizer';
+import {
+  extractPaths,
+  optimizePaths,
+  generateCleanSVG,
+} from './axidraw-optimizer';
 import type { CanvasConfig } from '../controls/schema';
+import { reapplyBorderMask } from '../border-mask';
 
 export interface ExportOptions {
   optimize: boolean;
@@ -19,7 +24,7 @@ export interface ExportDialogResult {
  * Open export dialog to customize filename and options.
  */
 export function openExportDialog(
-  defaultFilename: string
+  defaultFilename: string,
 ): Promise<ExportDialogResult | null> {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -66,9 +71,15 @@ export function openExportDialog(
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    const filenameInput = dialog.querySelector('#export-filename') as HTMLInputElement;
-    const optimizeCheckbox = dialog.querySelector('#export-optimize') as HTMLInputElement;
-    const reverseCheckbox = dialog.querySelector('#export-reverse') as HTMLInputElement;
+    const filenameInput = dialog.querySelector(
+      '#export-filename',
+    ) as HTMLInputElement;
+    const optimizeCheckbox = dialog.querySelector(
+      '#export-optimize',
+    ) as HTMLInputElement;
+    const reverseCheckbox = dialog.querySelector(
+      '#export-reverse',
+    ) as HTMLInputElement;
 
     // Focus and select filename
     filenameInput.focus();
@@ -115,9 +126,42 @@ export function openExportDialog(
     };
 
     // Button handlers
-    dialog.querySelector('#dialog-cancel')!.addEventListener('click', () => close(null));
+    dialog
+      .querySelector('#dialog-cancel')!
+      .addEventListener('click', () => close(null));
     dialog.querySelector('#dialog-export')!.addEventListener('click', doExport);
   });
+}
+
+/**
+ * Build the final export SVG string: re-apply the border mask
+ * geometrically on a clone — catching lettering that arrived after
+ * the initial draw and removing anything that cannot be truly
+ * clipped — then optimize or clean-serialize. The exported file needs
+ * no downstream processing (no vpype crop): what it contains is what
+ * the plotter draws.
+ */
+export function buildExportSvg(
+  svgElement: SVGSVGElement,
+  canvas: CanvasConfig,
+  options: ExportOptions,
+): string {
+  const clone = svgElement.cloneNode(true) as SVGSVGElement;
+  reapplyBorderMask(clone);
+
+  if (options.optimize) {
+    const paths = extractPaths(clone);
+
+    if (paths.length === 0) {
+      console.warn('No paths found in SVG to export');
+      return cleanSVG(clone, canvas);
+    }
+    const optimized = optimizePaths(paths, {
+      reverseStrokes: options.reverseStrokes,
+    });
+    return generateCleanSVG(optimized, canvas);
+  }
+  return cleanSVG(clone, canvas);
 }
 
 /**
@@ -127,29 +171,10 @@ export function exportSVG(
   svgElement: SVGSVGElement,
   canvas: CanvasConfig,
   filename: string,
-  options: ExportOptions
+  options: ExportOptions,
 ): void {
-  let svgContent: string;
-
-  if (options.optimize) {
-    const paths = extractPaths(svgElement);
-
-    if (paths.length === 0) {
-      console.warn('No paths found in SVG to export');
-      svgContent = cleanSVG(svgElement, canvas);
-    } else {
-      const optimized = optimizePaths(paths, {
-        reverseStrokes: options.reverseStrokes,
-      });
-      svgContent = generateCleanSVG(optimized, canvas);
-    }
-  } else {
-    svgContent = cleanSVG(svgElement, canvas);
-  }
-
-  downloadSVG(svgContent, filename);
+  downloadSVG(buildExportSvg(svgElement, canvas, options), filename);
 }
-
 /**
  * Clean SVG without optimization (remove browser display styles).
  */

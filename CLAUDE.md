@@ -152,6 +152,20 @@ export function draw(values: Values, canvas: CanvasConfig): SVGElement {
 
 See `grid-pattern.ts` and `flow-field.ts` for SVG.js examples, `spiral-study.ts` for raw DOM.
 
+### Border Mask and Export Clipping
+
+Every artwork applies `applyBorderMask` (`src/border-mask.ts`) as standard
+equipment: it rewrites geometry — all of it, curves included — so no ink
+survives outside the inset rectangle, because plotter drivers ignore SVG
+`clip-path`. The pure math (path parsing/normalization to lines + beziers,
+affine transforms, exact curve clipping, boolean filled-shape clipping)
+lives in `src/path-geometry.ts` and is unit-tested (`npm test`, vitest).
+Exports (`buildExportSvg` in `src/export/svg-export.ts`) re-apply the mask
+on a clone via `reapplyBorderMask` — the mask bounds are stamped on the svg
+root — so geometry that arrived after the initial draw (async Secondhand
+Cursive lettering) is clipped too, and anything unrewritable is removed.
+An exported SVG therefore needs no vpype/post-processing before plotting.
+
 ### Control Types
 
 | Type | Value Type | UI |

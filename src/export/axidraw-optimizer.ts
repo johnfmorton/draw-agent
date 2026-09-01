@@ -4,6 +4,21 @@
  */
 
 import type { CanvasConfig } from '../controls/schema';
+import { canvasToPixels } from '../controls/schema';
+import {
+  ellipseToSubPath,
+  matApply,
+  matDet,
+  matIdentity,
+  matIsIdentity,
+  matMultiply,
+  parsePathData,
+  parseTransformAttribute,
+  reverseSubPaths,
+  serializePathData,
+  transformSubPaths,
+  type Mat,
+} from '../path-geometry';
 
 interface Point {
   x: number;
@@ -31,38 +46,58 @@ interface OptimizationOptions {
 export function extractPaths(svg: SVGSVGElement): PathSegment[] {
   const paths: PathSegment[] = [];
 
-  function processElement(element: Element, parentTransform: DOMMatrix, inheritedStyles: InheritedStyles) {
+  function processElement(
+    element: Element,
+    parentTransform: Mat,
+    inheritedStyles: InheritedStyles,
+  ) {
+    // Non-drawable containers must never be plotted (a <clipPath>'s
+    // rect is mask machinery, not ink).
+    if (NON_DRAWABLE_TAGS.has(element.tagName)) return;
+
     // Merge inherited styles with element's own styles
     const styles = getElementStyles(element, inheritedStyles);
 
     // Get this element's transform and combine with parent
     const localTransform = getElementTransform(element);
-    const transform = parentTransform.multiply(localTransform);
+    const transform = matMultiply(parentTransform, localTransform);
 
-    if (element instanceof SVGPathElement) {
-      const d = element.getAttribute('d');
-      if (d) {
-        const segment = createPathSegment(d, transform, styles);
-        if (segment) paths.push(segment);
+    let segment: PathSegment | null = null;
+    switch (element.tagName) {
+      case 'path': {
+        const d = element.getAttribute('d');
+        if (d) segment = createPathSegment(d, transform, styles);
+        break;
       }
-    } else if (element instanceof SVGLineElement) {
-      const segment = lineToPathSegment(element, transform, styles);
-      if (segment) paths.push(segment);
-    } else if (element instanceof SVGPolylineElement) {
-      const segment = polylineToPathSegment(element, transform, styles, false);
-      if (segment) paths.push(segment);
-    } else if (element instanceof SVGPolygonElement) {
-      const segment = polylineToPathSegment(element, transform, styles, true);
-      if (segment) paths.push(segment);
-    } else if (element instanceof SVGCircleElement) {
-      const segment = circleToPathSegment(element, transform, styles);
-      if (segment) paths.push(segment);
-    } else if (element instanceof SVGEllipseElement) {
-      const segment = ellipseToPathSegment(element, transform, styles);
-      if (segment) paths.push(segment);
-    } else if (element instanceof SVGRectElement) {
-      const segment = rectToPathSegment(element, transform, styles);
-      if (segment) paths.push(segment);
+      case 'line':
+        segment = lineToPathSegment(element, transform, styles);
+        break;
+      case 'polyline':
+        segment = polylineToPathSegment(element, transform, styles, false);
+        break;
+      case 'polygon':
+        segment = polylineToPathSegment(element, transform, styles, true);
+        break;
+      case 'circle':
+        segment = circleToPathSegment(element, transform, styles);
+        break;
+      case 'ellipse':
+        segment = ellipseToPathSegment(element, transform, styles);
+        break;
+      case 'rect':
+        segment = rectToPathSegment(element, transform, styles);
+        break;
+    }
+
+    if (segment) {
+      // Flattening a transform into coordinates must also flatten it
+      // into the stroke width, or a scaled group exports the wrong
+      // pen-width hint (cosmetic for AxiDraw, which follows geometry).
+      const scale = Math.sqrt(Math.abs(matDet(transform)));
+      if (Math.abs(scale - 1) > 1e-9) {
+        segment = { ...segment, strokeWidth: segment.strokeWidth * scale };
+      }
+      paths.push(segment);
     }
 
     // Recurse into children
@@ -71,18 +106,29 @@ export function extractPaths(svg: SVGSVGElement): PathSegment[] {
     }
   }
 
-  const initialTransform = new DOMMatrix();
   const initialStyles: InheritedStyles = {
     stroke: 'black',
     strokeWidth: 1,
   };
 
   for (const child of svg.children) {
-    processElement(child, initialTransform, initialStyles);
+    processElement(child, matIdentity(), initialStyles);
   }
 
   return paths;
 }
+
+const NON_DRAWABLE_TAGS = new Set([
+  'defs',
+  'clipPath',
+  'mask',
+  'symbol',
+  'metadata',
+  'title',
+  'desc',
+  'style',
+  'script',
+]);
 
 interface InheritedStyles {
   stroke: string;
@@ -91,12 +137,19 @@ interface InheritedStyles {
   strokeLinejoin?: string;
 }
 
-function getElementStyles(element: Element, inherited: InheritedStyles): InheritedStyles {
+function getElementStyles(
+  element: Element,
+  inherited: InheritedStyles,
+): InheritedStyles {
   const stroke = element.getAttribute('stroke') ?? inherited.stroke;
   const strokeWidthAttr = element.getAttribute('stroke-width');
-  const strokeWidth = strokeWidthAttr ? parseFloat(strokeWidthAttr) : inherited.strokeWidth;
-  const strokeLinecap = element.getAttribute('stroke-linecap') ?? inherited.strokeLinecap;
-  const strokeLinejoin = element.getAttribute('stroke-linejoin') ?? inherited.strokeLinejoin;
+  const strokeWidth = strokeWidthAttr
+    ? parseFloat(strokeWidthAttr)
+    : inherited.strokeWidth;
+  const strokeLinecap =
+    element.getAttribute('stroke-linecap') ?? inherited.strokeLinecap;
+  const strokeLinejoin =
+    element.getAttribute('stroke-linejoin') ?? inherited.strokeLinejoin;
 
   const result: InheritedStyles = { stroke, strokeWidth };
   if (strokeLinecap) result.strokeLinecap = strokeLinecap;
@@ -104,22 +157,22 @@ function getElementStyles(element: Element, inherited: InheritedStyles): Inherit
   return result;
 }
 
-function getElementTransform(element: Element): DOMMatrix {
-  if (element instanceof SVGGraphicsElement) {
-    const transform = element.transform.baseVal.consolidate();
-    if (transform) {
-      return transform.matrix;
-    }
+function getElementTransform(element: Element): Mat {
+  const attr = element.getAttribute('transform');
+  if (!attr) return matIdentity();
+  const m = parseTransformAttribute(attr);
+  if (!m) {
+    console.warn(
+      `extractPaths: unparseable transform "${attr}" treated as identity`,
+    );
+    return matIdentity();
   }
-  return new DOMMatrix();
+  return m;
 }
 
-function applyTransform(point: Point, transform: DOMMatrix): Point {
-  const pt = new DOMPoint(point.x, point.y);
-  const transformed = pt.matrixTransform(transform);
-  return { x: transformed.x, y: transformed.y };
+function applyTransform(point: Point, transform: Mat): Point {
+  return matApply(transform, point);
 }
-
 /**
  * Build a PathSegment with proper optional property handling.
  */
@@ -127,7 +180,7 @@ function buildPathSegment(
   pathData: string,
   startPoint: Point,
   endPoint: Point,
-  styles: InheritedStyles
+  styles: InheritedStyles,
 ): PathSegment {
   const segment: PathSegment = {
     pathData,
@@ -144,7 +197,11 @@ function buildPathSegment(
 /**
  * Create a path segment from a path 'd' attribute.
  */
-function createPathSegment(d: string, transform: DOMMatrix, styles: InheritedStyles): PathSegment | null {
+function createPathSegment(
+  d: string,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment | null {
   const points = parsePathEndpoints(d);
   if (!points) return null;
 
@@ -160,7 +217,11 @@ function createPathSegment(d: string, transform: DOMMatrix, styles: InheritedSty
 /**
  * Convert SVG line to path segment.
  */
-function lineToPathSegment(line: SVGLineElement, transform: DOMMatrix, styles: InheritedStyles): PathSegment | null {
+function lineToPathSegment(
+  line: Element,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment | null {
   const x1 = parseFloat(line.getAttribute('x1') ?? '0');
   const y1 = parseFloat(line.getAttribute('y1') ?? '0');
   const x2 = parseFloat(line.getAttribute('x2') ?? '0');
@@ -169,17 +230,22 @@ function lineToPathSegment(line: SVGLineElement, transform: DOMMatrix, styles: I
   const start = applyTransform({ x: x1, y: y1 }, transform);
   const end = applyTransform({ x: x2, y: y2 }, transform);
 
-  return buildPathSegment(`M ${start.x} ${start.y} L ${end.x} ${end.y}`, start, end, styles);
+  return buildPathSegment(
+    `M ${start.x} ${start.y} L ${end.x} ${end.y}`,
+    start,
+    end,
+    styles,
+  );
 }
 
 /**
  * Convert SVG polyline/polygon to path segment.
  */
 function polylineToPathSegment(
-  element: SVGPolylineElement | SVGPolygonElement,
-  transform: DOMMatrix,
+  element: Element,
+  transform: Mat,
   styles: InheritedStyles,
-  closed: boolean
+  closed: boolean,
 ): PathSegment | null {
   const pointsAttr = element.getAttribute('points');
   if (!pointsAttr) return null;
@@ -187,7 +253,7 @@ function polylineToPathSegment(
   const points = parsePointsAttribute(pointsAttr);
   if (points.length < 2) return null;
 
-  const transformedPoints = points.map(p => applyTransform(p, transform));
+  const transformedPoints = points.map((p) => applyTransform(p, transform));
 
   let d = `M ${transformedPoints[0].x} ${transformedPoints[0].y}`;
   for (let i = 1; i < transformedPoints.length; i++) {
@@ -196,7 +262,9 @@ function polylineToPathSegment(
   if (closed) d += ' Z';
 
   const startPoint = transformedPoints[0];
-  const endPoint = closed ? transformedPoints[0] : transformedPoints[transformedPoints.length - 1];
+  const endPoint = closed
+    ? transformedPoints[0]
+    : transformedPoints[transformedPoints.length - 1];
 
   return buildPathSegment(d, startPoint, endPoint, styles);
 }
@@ -204,55 +272,59 @@ function polylineToPathSegment(
 /**
  * Convert SVG circle to path segment.
  */
-function circleToPathSegment(circle: SVGCircleElement, transform: DOMMatrix, styles: InheritedStyles): PathSegment | null {
+function circleToPathSegment(
+  circle: Element,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment | null {
   const cx = parseFloat(circle.getAttribute('cx') ?? '0');
   const cy = parseFloat(circle.getAttribute('cy') ?? '0');
   const r = parseFloat(circle.getAttribute('r') ?? '0');
-
   if (r <= 0) return null;
-
-  // Convert circle to two arcs
-  const center = applyTransform({ x: cx, y: cy }, transform);
-  const right = applyTransform({ x: cx + r, y: cy }, transform);
-  const left = applyTransform({ x: cx - r, y: cy }, transform);
-
-  // Calculate transformed radius (approximate for non-uniform scaling)
-  const rx = Math.sqrt(Math.pow(right.x - center.x, 2) + Math.pow(right.y - center.y, 2));
-
-  const d = `M ${right.x} ${right.y} A ${rx} ${rx} 0 1 1 ${left.x} ${left.y} A ${rx} ${rx} 0 1 1 ${right.x} ${right.y}`;
-
-  return buildPathSegment(d, right, right, styles);
+  return ellipseSegment(cx, cy, r, r, transform, styles);
 }
 
 /**
  * Convert SVG ellipse to path segment.
  */
-function ellipseToPathSegment(ellipse: SVGEllipseElement, transform: DOMMatrix, styles: InheritedStyles): PathSegment | null {
+function ellipseToPathSegment(
+  ellipse: Element,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment | null {
   const cx = parseFloat(ellipse.getAttribute('cx') ?? '0');
   const cy = parseFloat(ellipse.getAttribute('cy') ?? '0');
   const rx = parseFloat(ellipse.getAttribute('rx') ?? '0');
   const ry = parseFloat(ellipse.getAttribute('ry') ?? '0');
-
   if (rx <= 0 || ry <= 0) return null;
-
-  const right = applyTransform({ x: cx + rx, y: cy }, transform);
-  const left = applyTransform({ x: cx - rx, y: cy }, transform);
-  const center = applyTransform({ x: cx, y: cy }, transform);
-
-  // Calculate transformed radii
-  const trx = Math.sqrt(Math.pow(right.x - center.x, 2) + Math.pow(right.y - center.y, 2));
-  const top = applyTransform({ x: cx, y: cy - ry }, transform);
-  const tr_y = Math.sqrt(Math.pow(top.x - center.x, 2) + Math.pow(top.y - center.y, 2));
-
-  const d = `M ${right.x} ${right.y} A ${trx} ${tr_y} 0 1 1 ${left.x} ${left.y} A ${trx} ${tr_y} 0 1 1 ${right.x} ${right.y}`;
-
-  return buildPathSegment(d, right, right, styles);
+  return ellipseSegment(cx, cy, rx, ry, transform, styles);
 }
 
+/** Exact under any affine map: transform the cubic control points, not the radii. */
+function ellipseSegment(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment {
+  const world = transformSubPaths(
+    [ellipseToSubPath(cx, cy, rx, ry)],
+    transform,
+  );
+  const d = serializePathData(world);
+  const start = matApply(transform, { x: cx + rx, y: cy });
+  return buildPathSegment(d, start, start, styles);
+}
 /**
  * Convert SVG rect to path segment.
  */
-function rectToPathSegment(rect: SVGRectElement, transform: DOMMatrix, styles: InheritedStyles): PathSegment | null {
+function rectToPathSegment(
+  rect: Element,
+  transform: Mat,
+  styles: InheritedStyles,
+): PathSegment | null {
   const x = parseFloat(rect.getAttribute('x') ?? '0');
   const y = parseFloat(rect.getAttribute('y') ?? '0');
   const width = parseFloat(rect.getAttribute('width') ?? '0');
@@ -275,7 +347,10 @@ function rectToPathSegment(rect: SVGRectElement, transform: DOMMatrix, styles: I
  */
 function parsePointsAttribute(pointsStr: string): Point[] {
   const points: Point[] = [];
-  const numbers = pointsStr.trim().split(/[\s,]+/).map(parseFloat);
+  const numbers = pointsStr
+    .trim()
+    .split(/[\s,]+/)
+    .map(parseFloat);
 
   for (let i = 0; i < numbers.length - 1; i += 2) {
     if (!isNaN(numbers[i]) && !isNaN(numbers[i + 1])) {
@@ -443,7 +518,10 @@ function parsePathCommands(d: string): PathCommand[] {
     const type = match[1];
     const argsStr = match[2].trim();
     const args = argsStr
-      ? argsStr.split(/[\s,]+/).map(parseFloat).filter(n => !isNaN(n))
+      ? argsStr
+          .split(/[\s,]+/)
+          .map(parseFloat)
+          .filter((n) => !isNaN(n))
       : [];
     commands.push({ type, args });
   }
@@ -452,76 +530,18 @@ function parsePathCommands(d: string): PathCommand[] {
 }
 
 /**
- * Transform path data using a transform matrix.
- * For simplicity, we only transform M, L commands fully.
- * Other commands are kept as-is (works well for simple paths).
+ * Transform path data exactly: every command (curves included) is
+ * normalized to absolute L/Q/C and its points are mapped through the
+ * matrix. Arcs become cubic approximations in the process.
  */
-function transformPathData(d: string, transform: DOMMatrix): string {
-  if (transform.isIdentity) return d;
-
-  const commands = parsePathCommands(d);
-  const result: string[] = [];
-  let currentX = 0;
-  let currentY = 0;
-
-  for (const cmd of commands) {
-    const { type, args } = cmd;
-
-    switch (type) {
-      case 'M': {
-        const points: string[] = [];
-        for (let i = 0; i < args.length; i += 2) {
-          const p = applyTransform({ x: args[i], y: args[i + 1] }, transform);
-          points.push(`${p.x} ${p.y}`);
-          currentX = args[i];
-          currentY = args[i + 1];
-        }
-        result.push(`M ${points.join(' ')}`);
-        break;
-      }
-      case 'L': {
-        const points: string[] = [];
-        for (let i = 0; i < args.length; i += 2) {
-          const p = applyTransform({ x: args[i], y: args[i + 1] }, transform);
-          points.push(`${p.x} ${p.y}`);
-          currentX = args[i];
-          currentY = args[i + 1];
-        }
-        result.push(`L ${points.join(' ')}`);
-        break;
-      }
-      case 'H': {
-        const points: string[] = [];
-        for (const x of args) {
-          const p = applyTransform({ x, y: currentY }, transform);
-          points.push(`${p.x} ${p.y}`);
-          currentX = x;
-        }
-        result.push(`L ${points.join(' ')}`);
-        break;
-      }
-      case 'V': {
-        const points: string[] = [];
-        for (const y of args) {
-          const p = applyTransform({ x: currentX, y }, transform);
-          points.push(`${p.x} ${p.y}`);
-          currentY = y;
-        }
-        result.push(`L ${points.join(' ')}`);
-        break;
-      }
-      case 'Z':
-      case 'z':
-        result.push('Z');
-        break;
-      default:
-        // For complex commands (curves), keep as-is
-        // This is a simplification - full implementation would transform control points
-        result.push(`${type} ${args.join(' ')}`);
-    }
+function transformPathData(d: string, transform: Mat): string {
+  if (matIsIdentity(transform)) return d;
+  const model = parsePathData(d);
+  if (!model) {
+    console.warn('transformPathData: unparseable path data left untransformed');
+    return d;
   }
-
-  return result.join(' ');
+  return serializePathData(transformSubPaths(model, transform));
 }
 
 /**
@@ -532,82 +552,35 @@ function distance(a: Point, b: Point): number {
 }
 
 /**
- * Reverse a path segment (swap start/end, reverse path data).
+ * Reverse a path segment (swap start/end, reverse path data). When
+ * the data can't be reversed the segment is returned unchanged so
+ * the optimizer's pen-position tracking stays truthful.
  */
 function reversePath(segment: PathSegment): PathSegment {
+  const reversed = reversePathData(segment.pathData);
+  if (reversed === null) return segment;
   return {
     ...segment,
-    pathData: reversePathData(segment.pathData),
+    pathData: reversed,
     startPoint: segment.endPoint,
     endPoint: segment.startPoint,
   };
 }
 
-/**
- * Reverse path data (reverse order of points in simple paths).
- */
-function reversePathData(d: string): string {
-  const commands = parsePathCommands(d);
-
-  // Extract all points from the path
-  const points: Point[] = [];
-  let currentX = 0;
-  let currentY = 0;
-  let isClosed = false;
-
-  for (const cmd of commands) {
-    const { type, args } = cmd;
-
-    switch (type) {
-      case 'M':
-      case 'L':
-        for (let i = 0; i < args.length; i += 2) {
-          points.push({ x: args[i], y: args[i + 1] });
-          currentX = args[i];
-          currentY = args[i + 1];
-        }
-        break;
-      case 'H':
-        for (const x of args) {
-          points.push({ x, y: currentY });
-          currentX = x;
-        }
-        break;
-      case 'V':
-        for (const y of args) {
-          points.push({ x: currentX, y });
-          currentY = y;
-        }
-        break;
-      case 'Z':
-      case 'z':
-        isClosed = true;
-        break;
-      default:
-        // For complex paths, just return the original (can't easily reverse beziers)
-        return d;
-    }
-  }
-
-  if (points.length < 2) return d;
-
-  // Reverse the points
-  const reversed = points.reverse();
-
-  // Rebuild path
-  let result = `M ${reversed[0].x} ${reversed[0].y}`;
-  for (let i = 1; i < reversed.length; i++) {
-    result += ` L ${reversed[i].x} ${reversed[i].y}`;
-  }
-  if (isClosed) result += ' Z';
-
-  return result;
+/** Reverse path data; null when it can't be parsed. */
+function reversePathData(d: string): string | null {
+  const model = parsePathData(d);
+  if (!model || model.length === 0) return null;
+  return serializePathData(reverseSubPaths(model));
 }
 
 /**
  * Optimize path order using greedy nearest-neighbor algorithm.
  */
-export function optimizePaths(paths: PathSegment[], options: OptimizationOptions): PathSegment[] {
+export function optimizePaths(
+  paths: PathSegment[],
+  options: OptimizationOptions,
+): PathSegment[] {
   if (paths.length === 0) return [];
 
   const result: PathSegment[] = [];
@@ -654,14 +627,18 @@ export function optimizePaths(paths: PathSegment[], options: OptimizationOptions
 /**
  * Generate clean SVG string from optimized paths.
  */
-export function generateCleanSVG(paths: PathSegment[], canvas: CanvasConfig): string {
+export function generateCleanSVG(
+  paths: PathSegment[],
+  canvas: CanvasConfig,
+): string {
   const { width, height, unit } = canvas;
+  const pixels = canvasToPixels(canvas);
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      width="${width}${unit}"
      height="${height}${unit}"
-     viewBox="0 0 ${width} ${height}">
+     viewBox="0 0 ${pixels.width} ${pixels.height}">
 `;
 
   for (const path of paths) {
