@@ -59,6 +59,16 @@ export const controls = [
     default: 24,
   },
   {
+    type: 'slider',
+    id: 'textRotation',
+    label: 'Text Rotation',
+    description: 'Tilt the lettering, in degrees clockwise',
+    min: -180,
+    max: 180,
+    step: 1,
+    default: 0,
+  },
+  {
     type: 'seed',
     id: 'seed',
     label: 'Seed',
@@ -69,7 +79,8 @@ export const controls = [
 export type Values = InferValues<typeof controls>;
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
-  const { seed, showCalibration, borderMode, borderInset } = values;
+  const { seed, showCalibration, borderMode, borderInset, textRotation } =
+    values;
 
   seedPRNG(seed.toString());
   const { width, height } = canvasToPixels(canvasConfig);
@@ -91,13 +102,22 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       .fill('none')
       .stroke({ color: '#000', width: 1 });
 
+    console.log('cx:', cx);
+
     // Typeset "test" and fit it inside the circle with a small margin.
     // penWidthMm previews the strokes at the real pen's line width; the
     // path geometry is identical regardless of the API's lineweight.
     cursiveInCircle(
       svg,
-      { text: 'test', seed },
-      { cx, cy, radius, margin: 0.85, penWidthMm: 0.3 },
+      { text: 'summer', seed },
+      {
+        cx,
+        cy,
+        radius,
+        margin: 2.65,
+        penWidthMm: 0.3,
+        rotateDeg: textRotation,
+      },
     );
   }
 

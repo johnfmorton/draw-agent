@@ -215,6 +215,12 @@ export interface CursivePlacement {
    * the preview shows what the plotter will actually put down.
    */
   penWidthMm?: number | undefined;
+  /**
+   * Rotate the lettering this many degrees clockwise about the ink
+   * box's center. The x/y placement still positions the unrotated box;
+   * the rotation then tilts it in place.
+   */
+  rotateDeg?: number | undefined;
 }
 
 /**
@@ -238,11 +244,16 @@ export function cursiveGroup(
   }
   const [minX, minY] = viewBox.split(/[\s,]+/).map(Number);
 
-  const { x, y, scale, penWidthMm } = placement;
+  const { x, y, scale, penWidthMm, rotateDeg } = placement;
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const rotate = rotateDeg
+    ? `rotate(${rotateDeg} ${x + (rendered.width_mm * scale) / 2} ${
+        y + (rendered.height_mm * scale) / 2
+      }) `
+    : '';
   g.setAttribute(
     'transform',
-    `translate(${x} ${y}) scale(${scale}) translate(${-minX} ${-minY})`,
+    `${rotate}translate(${x} ${y}) scale(${scale}) translate(${-minX} ${-minY})`,
   );
   while (inner.firstChild) g.appendChild(inner.firstChild);
 
@@ -271,6 +282,11 @@ export interface CircleFit {
   margin?: number;
   /** See CursivePlacement.penWidthMm. */
   penWidthMm?: number;
+  /**
+   * Degrees clockwise about the circle center. The fit is sized by the
+   * ink box's half-diagonal, so any rotation stays inside the circle.
+   */
+  rotateDeg?: number;
 }
 
 /**
@@ -283,7 +299,7 @@ export function cursiveInCircle(
   options: CursiveOptions,
   fit: CircleFit,
 ): void {
-  const { cx, cy, radius, margin = 0.85, penWidthMm } = fit;
+  const { cx, cy, radius, margin = 0.85, penWidthMm, rotateDeg } = fit;
   withCursive(svg, options, (rendered) => {
     const scale =
       (2 * radius * margin) / Math.hypot(rendered.width_mm, rendered.height_mm);
@@ -292,6 +308,7 @@ export function cursiveInCircle(
       y: cy - (rendered.height_mm * scale) / 2,
       scale,
       penWidthMm,
+      rotateDeg,
     });
     if (g) svg.appendChild(g);
   });
@@ -309,6 +326,8 @@ export interface PointPlacement {
   widthPx?: number;
   /** See CursivePlacement.penWidthMm. */
   penWidthMm?: number;
+  /** Degrees clockwise about the ink box's center. */
+  rotateDeg?: number;
 }
 
 /**
@@ -336,6 +355,7 @@ export function cursiveAt(
       y: anchor === 'center' ? placement.y - h / 2 : placement.y,
       scale,
       penWidthMm: placement.penWidthMm,
+      rotateDeg: placement.rotateDeg,
     });
     if (g) svg.appendChild(g);
   });
