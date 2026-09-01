@@ -22,6 +22,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import type { SaveResponse } from '../vite-plugins/art-files';
 import type { ControlDefinition } from '../controls/schema';
 import { computeValuesDestructureEdits } from '../artwork-template';
+import { initPaneResizer } from '../pane-resize';
 
 export type ControlsBlockResult =
   | 'saved'
@@ -571,19 +572,22 @@ export function initEditorPane(
 
   // --- Collapse & resize ---
 
-  function maxWidth(): number {
-    return Math.round(window.innerWidth * 0.7);
-  }
+  const paneResizer = initPaneResizer({
+    pane: container,
+    resizer,
+    storageKey: WIDTH_KEY,
+    minWidth: MIN_WIDTH,
+    defaultWidth: DEFAULT_WIDTH,
+    maxWidth: () => Math.round(window.innerWidth * 0.7),
+    edge: 'right',
+  });
 
   function applyWidth(): void {
     if (container.classList.contains('is-collapsed')) {
       container.style.width = '';
       return;
     }
-    const stored = Number(localStorage.getItem(WIDTH_KEY));
-    const width =
-      Number.isFinite(stored) && stored >= MIN_WIDTH ? stored : DEFAULT_WIDTH;
-    container.style.width = `${Math.min(width, maxWidth())}px`;
+    paneResizer.applyWidth();
   }
 
   function setCollapsed(collapsed: boolean): void {
@@ -607,32 +611,6 @@ export function initEditorPane(
     setStatus('Loaded disk version', 'ok');
   };
   r.conflictKeep.onclick = () => hideConflict();
-
-  resizer.onpointerdown = (e) => {
-    e.preventDefault();
-    resizer.setPointerCapture(e.pointerId);
-    const startX = e.clientX;
-    const startWidth = container.getBoundingClientRect().width;
-    resizer.classList.add('is-dragging');
-
-    resizer.onpointermove = (ev) => {
-      const width = Math.max(
-        MIN_WIDTH,
-        Math.min(maxWidth(), startWidth + (ev.clientX - startX))
-      );
-      container.style.width = `${width}px`;
-    };
-    resizer.onpointerup = (ev) => {
-      resizer.classList.remove('is-dragging');
-      resizer.onpointermove = null;
-      resizer.onpointerup = null;
-      resizer.releasePointerCapture(ev.pointerId);
-      localStorage.setItem(
-        WIDTH_KEY,
-        String(Math.round(container.getBoundingClientRect().width))
-      );
-    };
-  };
 
   return { setArtwork, handleExternalChange, confirmDiscard, updateControlsBlock };
 }

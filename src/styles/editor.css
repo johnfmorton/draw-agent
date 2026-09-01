@@ -148,18 +148,3 @@
   color: var(--text-hint);
   line-height: 1.5;
 }
-
-/* Resizer */
-#editor-resizer {
-  width: 5px;
-  flex-shrink: 0;
-  cursor: col-resize;
-  background: transparent;
-  transition: background 0.15s;
-  touch-action: none;
-}
-
-#editor-resizer:hover,
-#editor-resizer.is-dragging {
-  background: var(--accent);
-}

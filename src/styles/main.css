@@ -72,6 +72,21 @@ body {
   overflow: hidden;
 }
 
+/* Pane resizers: thin draggable gutters beside the side panes */
+.pane-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  touch-action: none;
+}
+
+.pane-resizer:hover,
+.pane-resizer.is-dragging {
+  background: var(--accent);
+}
+
 /* Center Pane (preview + console) */
 #center-pane {
   flex: 1;
@@ -139,7 +154,7 @@ body {
 
 /* Control Pane */
 #control-pane {
-  width: 360px;
+  width: 360px; /* default; drag the gutter to resize (persisted) */
   flex-shrink: 0;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);

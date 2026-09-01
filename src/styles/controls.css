@@ -243,9 +243,8 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  overflow-wrap: break-word;
 }
 
 .control-label-editable {
@@ -281,6 +280,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* The row grid's 1fr column must be able to shrink below the
+     control's intrinsic width, or the reset button gets pushed off
+     the panel edge. */
+  min-width: 0;
 }
 
 /* Slider Control */
@@ -290,6 +293,7 @@
 
 .control-slider input[type='range'] {
   flex: 1;
+  min-width: 0;
   height: 20px;
   background: transparent;
   -webkit-appearance: none;
@@ -385,6 +389,7 @@
 /* Dropdown Control */
 .control-dropdown {
   flex: 1;
+  min-width: 0;
 }
 
 .control-dropdown select {
@@ -394,10 +399,12 @@
 /* Seed Control */
 .control-seed {
   flex: 1;
+  min-width: 0;
 }
 
 .control-seed input {
   flex: 1;
+  min-width: 0;
   padding: 4px 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
@@ -421,6 +428,7 @@
 /* Numeric Control */
 .control-numeric {
   flex: 1;
+  min-width: 0;
 }
 
 .control-numeric input {
@@ -454,23 +462,25 @@
 }
 
 /* Vector Control */
+/* X + Y inputs plus the magnitude readout can't share one line in the
+   panel's column width, so stack: inputs row, magnitude beneath. */
 .control-vector {
   flex: 1;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
 }
 
 .vector-inputs {
   display: flex;
   gap: 8px;
-  flex: 1;
   min-width: 0;
 }
 
 .vector-magnitude {
   font-size: 11px;
   color: var(--text-hint);
-  min-width: 40px;
   text-align: right;
 }
 

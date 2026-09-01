@@ -54,6 +54,7 @@ import {
   initConsolePanel,
 } from './console/console-panel';
 import { initEditorPane } from './editor/editor-pane';
+import { initPaneResizer } from './pane-resize';
 
 // Capture console output before anything else logs
 installConsoleCapture();
@@ -113,6 +114,17 @@ const editorPane = initEditorPane(
   document.getElementById('editor-pane')!,
   document.getElementById('editor-resizer')!
 );
+
+// Control pane width: draggable via the gutter, like the editor pane
+initPaneResizer({
+  pane: document.getElementById('control-pane')!,
+  resizer: document.getElementById('control-resizer')!,
+  storageKey: 'draw-agent:controls-width',
+  minWidth: 320,
+  defaultWidth: 360,
+  maxWidth: () => Math.round(window.innerWidth * 0.7),
+  edge: 'left',
+}).applyWidth();
 
 /**
  * Initialize the app.
