@@ -14,10 +14,15 @@ import {
   DEFAULT_CANVAS,
   canvasToPixels,
 } from './controls/schema';
-import { renderControlList, createArtworkSelector } from './controls/control-list';
+import {
+  renderControlList,
+  createArtworkSelector,
+  type ReorderedControl,
+} from './controls/control-list';
 import { createCanvasControls } from './controls/canvas-controls';
 import {
   openControlDialog,
+  openGroupNameDialog,
   generateControlsCode,
   getWriteControlsToFilePreference,
 } from './controls/control-dialog';
@@ -40,6 +45,8 @@ import {
   loadWorkingCanvas,
   saveWorkingCanvas,
   clearWorkingCanvas,
+  loadCollapsedGroups,
+  saveCollapsedGroups,
 } from './sync/local-storage';
 import { exportSVG, openExportDialog } from './export/svg-export';
 import {
@@ -68,6 +75,10 @@ let currentCanvas: CanvasConfig = { ...DEFAULT_CANVAS };
 let currentControls: ControlDefinition[] = [];  // Mutable copy of controls
 let fileDefaults: Record<string, unknown> = {};
 let fileCanvas: CanvasConfig = { ...DEFAULT_CANVAS };
+// Groups created via the 📁 button that have no member controls yet.
+// Session-only: a group becomes real (and file-persistable) once a
+// control is dragged in; an empty one vanishes on reload.
+let pendingGroups: string[] = [];
 
 // DOM elements
 const previewEl = document.getElementById('preview')!;
@@ -80,6 +91,7 @@ const resetBtn = document.getElementById('reset-btn')!;
 const copyUrlBtn = document.getElementById('copy-url-btn')!;
 const exportSvgBtn = document.getElementById('export-svg-btn')!;
 const addControlBtn = document.getElementById('add-control-btn')!;
+const addGroupBtn = document.getElementById('add-group-btn')!;
 const exportControlsBtn = document.getElementById('export-controls-btn')!;
 const newArtworkBtn = document.getElementById('new-artwork-btn')!;
 
@@ -144,6 +156,7 @@ async function init() {
   copyUrlBtn.onclick = handleCopyUrl;
   exportSvgBtn.onclick = handleExportSvg;
   addControlBtn.onclick = handleAddControl;
+  addGroupBtn.onclick = handleNewGroup;
   exportControlsBtn.onclick = handleExportControls;
   newArtworkBtn.onclick = handleNewArtwork;
 
@@ -180,6 +193,7 @@ async function selectArtwork(path: string) {
     fileDefaults = getDefaults(artwork.controls);
     fileCanvas = getArtworkCanvas(artwork);
     currentControls = [...artwork.controls];  // Mutable copy
+    pendingGroups = [];
 
     // Determine initial values (URL > localStorage > file defaults)
     const urlState = parseUrlState(getUrlHash(), artwork.controls);
@@ -343,6 +357,28 @@ function updateDirtyState(id: string) {
   if (resetBtn) {
     resetBtn.title = `Reset to ${formatValue(fileDefault)}`;
   }
+
+  // Keep the enclosing group's dirty indicator in sync
+  const section = row.closest('.control-group');
+  if (section) {
+    section.classList.toggle(
+      'has-dirty',
+      section.querySelector('.control-row.is-dirty') !== null
+    );
+  }
+}
+
+/**
+ * Persist a control group's collapsed/expanded state for this artwork.
+ */
+function handleGroupToggle(group: string, collapsed: boolean) {
+  const set = new Set(loadCollapsedGroups(currentArtworkName));
+  if (collapsed) {
+    set.add(group);
+  } else {
+    set.delete(group);
+  }
+  saveCollapsedGroups(currentArtworkName, [...set]);
 }
 
 /**
@@ -445,9 +481,16 @@ async function handleExportSvg() {
  * server (and thus the /__art endpoint) is available.
  */
 function controlDialogOptions() {
+  const existingGroups = [
+    ...new Set(
+      currentControls
+        .map((c) => c.group)
+        .filter((g): g is string => g !== undefined)
+    ),
+  ];
   return import.meta.env.DEV && currentArtworkName
-    ? { fileTarget: currentArtworkName }
-    : {};
+    ? { fileTarget: currentArtworkName, existingGroups }
+    : { existingGroups };
 }
 
 /**
@@ -501,6 +544,38 @@ async function handleAddControl() {
 }
 
 /**
+ * Handle the 📁 button: create an empty group section, ready to have
+ * controls dragged into it.
+ */
+async function handleNewGroup() {
+  const existing = [
+    ...new Set([
+      ...currentControls
+        .map((c) => c.group)
+        .filter((g): g is string => g !== undefined),
+      ...pendingGroups,
+    ]),
+  ];
+  const name = await openGroupNameDialog(existing);
+  if (!name) return;
+
+  pendingGroups = [...pendingGroups, name];
+  renderControls();
+}
+
+/**
+ * Remove an empty group (its × button; only rendered when memberless).
+ */
+function handleRemoveGroup(name: string) {
+  pendingGroups = pendingGroups.filter((g) => g !== name);
+  saveCollapsedGroups(
+    currentArtworkName,
+    loadCollapsedGroups(currentArtworkName).filter((g) => g !== name)
+  );
+  renderControls();
+}
+
+/**
  * Handle editing a control (called when clicking on a control label).
  */
 async function handleEditControl(controlId: string) {
@@ -539,16 +614,47 @@ async function handleEditControl(controlId: string) {
 
 /**
  * Handle drag-reordering of controls. The list DOM already reflects the
- * new order; update state and persist to the file per the user's
- * write-to-file preference.
+ * new order; update state (including group membership when a row was
+ * dropped into a different section), re-render so group counts and
+ * emptied sections stay accurate, and persist to the file per the
+ * user's write-to-file preference.
  */
-function handleReorderControls(orderedIds: string[]) {
+function handleReorderControls(order: ReorderedControl[]) {
   const byId = new Map(currentControls.map((c) => [c.id, c]));
-  const reordered = orderedIds
-    .map((id) => byId.get(id))
-    .filter((c): c is ControlDefinition => c !== undefined);
+  const reordered: ControlDefinition[] = [];
+  for (const { id, group } of order) {
+    const control = byId.get(id);
+    if (!control) continue;
+    if ((control.group ?? null) === group) {
+      reordered.push(control);
+    } else {
+      const updated = { ...control };
+      if (group === null) {
+        delete updated.group;
+      } else {
+        updated.group = group;
+      }
+      reordered.push(updated);
+    }
+  }
   if (reordered.length !== currentControls.length) return;
+
+  // Group bookkeeping: a pending folder that gained its first member
+  // is now defined by control membership; a group whose last member
+  // was dragged out lives on as an empty folder instead of vanishing.
+  const hadMembers = new Set(
+    currentControls.map((c) => c.group).filter((g): g is string => g !== undefined)
+  );
   currentControls = reordered;
+  const hasMembers = new Set(
+    currentControls.map((c) => c.group).filter((g): g is string => g !== undefined)
+  );
+  pendingGroups = [
+    ...pendingGroups.filter((g) => !hasMembers.has(g)),
+    ...[...hadMembers].filter((g) => !hasMembers.has(g) && !pendingGroups.includes(g)),
+  ];
+
+  renderControls();
 
   if (import.meta.env.DEV && getWriteControlsToFilePreference()) {
     void syncControlsToFile();
@@ -652,8 +758,14 @@ function renderControls() {
       fileDefaults,
       handleValueChange,
       handleResetControl,
-      handleEditControl,
-      handleReorderControls
+      {
+        onEdit: handleEditControl,
+        onReorder: handleReorderControls,
+        collapsedGroups: new Set(loadCollapsedGroups(currentArtworkName)),
+        onGroupToggle: handleGroupToggle,
+        emptyGroups: pendingGroups,
+        onRemoveGroup: handleRemoveGroup,
+      }
     )
   );
 }

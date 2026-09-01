@@ -180,6 +180,39 @@ An exported SVG therefore needs no vpype/post-processing before plotting.
 | `rectangle` | `{x, y, width, height}` | Four inputs |
 | `presets` | `string` | Preset selector, sets multiple values |
 
+### Control Groups
+
+Any control can declare an optional `group` name. Controls sharing a
+group render together in a collapsible section of the panel, placed
+where the group's first member appears in the schema:
+
+```typescript
+export const controls = [
+  { type: 'seed', id: 'seed', label: 'Seed', default: 42 },
+  { type: 'slider', id: 'gridRows', label: 'Rows', group: 'Grid Controls', min: 1, max: 40, default: 12 },
+  { type: 'toggle', id: 'showGrid', label: 'Show Grid', group: 'Grid Controls', default: true },
+] as const satisfies ControlSchema;
+```
+
+- Collapse/expand state persists per artwork in localStorage (UI
+  preference — not part of the URL state)
+- A collapsed group whose values differ from file defaults shows a
+  dirty dot; the header shows a member count
+- The control editor dialog has a Group field with autocomplete of
+  existing group names
+- Drag-reordering moves controls into, out of, or between groups;
+  dropping anywhere on a group section adds the control to it (the
+  header being the only way into a collapsed one)
+- Groups are draggable too: a grip in the group header moves the whole
+  section among top-level controls and other groups (never inside
+  another group), reordering its member controls together in the file
+- The 📁 button in the control panel header creates a new empty group
+  to drag controls into; empty folders are session-only (removable via
+  ×) until their first control lands, and a group whose last control
+  is dragged out lives on as an empty folder
+- Grouping doesn't affect values or type inference — `draw(values)` is
+  flat either way
+
 ### Value Synchronization Model
 
 ```
@@ -307,6 +340,7 @@ Split pane layout:
 - **Right**: Control panel with:
   - Artwork selector dropdown (lists all `art/*.ts` files)
   - Control list with dirty indicators (click label to edit)
+  - 📁 button to create a control group (drag controls into it)
   - "+" button to add new controls
   - "Export" button to copy schema to clipboard
   - Reset button to restore all file defaults
@@ -448,7 +482,6 @@ When releasing a new version, move items from `[Unreleased]` to a new version se
 - SVG export for plotter (download button)
 - Undo/redo for value changes
 - Conditional control visibility (show control B only if control A is true)
-- Control grouping (collapsible sections)
 - Preset management UI (save/load named presets)
 - Multiple artboards/variants
 - Control reordering via drag-and-drop

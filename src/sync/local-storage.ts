@@ -104,6 +104,50 @@ export function clearWorkingCanvas(artworkName: string): void {
 }
 
 /**
+ * Get the storage key for an artwork's collapsed control groups.
+ */
+function getCollapsedGroupsKey(artworkName: string): string {
+  return `${STORAGE_PREFIX}collapsed-groups:${artworkName}`;
+}
+
+/**
+ * Load the names of collapsed control groups for an artwork.
+ */
+export function loadCollapsedGroups(artworkName: string): string[] {
+  try {
+    const stored = localStorage.getItem(getCollapsedGroupsKey(artworkName));
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((g): g is string => typeof g === 'string');
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load collapsed groups from localStorage:', e);
+  }
+  return [];
+}
+
+/**
+ * Save the names of collapsed control groups for an artwork.
+ */
+export function saveCollapsedGroups(
+  artworkName: string,
+  groups: string[]
+): void {
+  try {
+    const key = getCollapsedGroupsKey(artworkName);
+    if (groups.length === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(groups));
+    }
+  } catch (e) {
+    console.warn('Failed to save collapsed groups to localStorage:', e);
+  }
+}
+
+/**
  * Get the last selected artwork name.
  */
 export function getLastArtwork(): string | null {

@@ -95,6 +95,11 @@ type BaseControl<T extends string> = {
   id: string;
   label: string;
   description?: string;
+  /**
+   * Controls sharing a group name render together in a collapsible
+   * section of the panel. Ungrouped controls render at the top level.
+   */
+  group?: string;
 };
 
 export type SliderControl = BaseControl<'slider'> & {

@@ -220,7 +220,8 @@ function controlToTypeScript(control: ControlDefinition): string {
   const desc = control.description
     ? `\n    description: '${esc(control.description)}',`
     : '';
-  const base = `    type: '${control.type}',\n    id: '${control.id}',\n    label: '${esc(control.label)}',${desc}`;
+  const group = control.group ? `\n    group: '${esc(control.group)}',` : '';
+  const base = `    type: '${control.type}',\n    id: '${control.id}',\n    label: '${esc(control.label)}',${desc}${group}`;
 
   switch (control.type) {
     case 'slider': {

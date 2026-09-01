@@ -26,6 +26,12 @@
   padding: 4px 8px;
 }
 
+#add-group-btn {
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
 /* Control List */
 .control-list {
   display: flex;
@@ -91,6 +97,145 @@
 .control-row.is-dirty .control-reset {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Control Groups */
+.control-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.control-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.control-group-header::-webkit-details-marker {
+  display: none;
+}
+
+.control-group-header::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--text-hint);
+  transition: transform 0.15s;
+}
+
+.control-group[open] > .control-group-header::before {
+  transform: rotate(90deg);
+}
+
+.control-group-header:hover {
+  background: var(--bg-control);
+}
+
+/* Group drag grip — sits left of the chevron, shown on header hover */
+.control-group-grip {
+  order: -1;
+}
+
+.control-group-header:hover .control-group-grip {
+  opacity: 1;
+}
+
+.control-group.is-dragging {
+  opacity: 0.4;
+}
+
+.control-group.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.control-group.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
+.control-group-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.control-group-count {
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hint);
+  background: var(--bg-control);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+/* Dot marking a group whose values differ from file defaults —
+   visible while collapsed, when the dirty rows themselves are hidden */
+.control-group.has-dirty:not([open]) > .control-group-header::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* Remove button on empty groups */
+.control-group-remove {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-hint);
+  cursor: pointer;
+}
+
+.control-group-remove:hover {
+  color: var(--accent);
+  background: none;
+  border: none;
+}
+
+.control-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 4px 4px;
+}
+
+/* Empty folder awaiting its first control: show a drop hint */
+.control-group-body:empty {
+  min-height: 34px;
+  position: relative;
+  margin: 0 4px 4px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+
+.control-group-body:empty::after {
+  content: 'Drag controls here';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-hint);
+  pointer-events: none;
+}
+
+/* Drop target highlight when dragging a control onto a group header */
+.control-group-header.drop-into {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--bg-control);
 }
 
 /* Control Label */

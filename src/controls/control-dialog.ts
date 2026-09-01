@@ -24,6 +24,11 @@ export interface ControlDialogOptions {
    * (no dev server), changes stay browser-only.
    */
   fileTarget?: string;
+  /**
+   * Group names already used by other controls, offered as
+   * autocomplete suggestions for the Group field.
+   */
+  existingGroups?: readonly string[];
 }
 
 const WRITE_TO_FILE_KEY = 'draw-agent:controls-write-to-file';
@@ -34,6 +39,15 @@ const WRITE_TO_FILE_KEY = 'draw-agent:controls-write-to-file';
  */
 export function getWriteControlsToFilePreference(): boolean {
   return localStorage.getItem(WRITE_TO_FILE_KEY) !== 'false';
+}
+
+/** Escape a string for interpolation into an HTML attribute value. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 type ControlType = ControlDefinition['type'];
@@ -94,6 +108,17 @@ export function openControlDialog(
         <label>Description <span class="dialog-hint">(optional tooltip)</span></label>
         <input type="text" id="dialog-description" placeholder="Controls the stroke width"
                value="${existing?.description ?? ''}">
+      </div>
+
+      <div class="dialog-field">
+        <label>Group <span class="dialog-hint">(optional collapsible section)</span></label>
+        <input type="text" id="dialog-group" placeholder="Grid Controls"
+               value="${escapeHtml(existing?.group ?? '')}" list="dialog-group-list">
+        <datalist id="dialog-group-list">
+          ${(options?.existingGroups ?? [])
+            .map((g) => `<option value="${escapeHtml(g)}"></option>`)
+            .join('')}
+        </datalist>
       </div>
 
       <div id="dialog-type-fields"></div>
@@ -206,6 +231,81 @@ export function openControlDialog(
         });
       }
     });
+  });
+}
+
+/**
+ * Open a small dialog asking for a new group name. Resolves with the
+ * trimmed name, or null when cancelled. Names already in
+ * `existingGroups` are rejected inline.
+ */
+export function openGroupNameDialog(
+  existingGroups: readonly string[]
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'control-dialog control-dialog-small';
+
+    dialog.innerHTML = `
+      <h2>New Group</h2>
+      <div class="dialog-field">
+        <label>Name <span class="dialog-hint">(collapsible section — drag controls into it)</span></label>
+        <input type="text" id="dialog-group-name" placeholder="Grid Controls">
+        <span class="dialog-hint is-error" id="dialog-group-error" hidden></span>
+      </div>
+      <div class="dialog-actions">
+        <div class="dialog-actions-right">
+          <button type="button" id="dialog-cancel" class="dialog-btn-secondary">Cancel</button>
+          <button type="button" id="dialog-create" class="dialog-btn-primary">Create</button>
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const nameInput = dialog.querySelector('#dialog-group-name') as HTMLInputElement;
+    const errorEl = dialog.querySelector('#dialog-group-error') as HTMLElement;
+    nameInput.focus();
+
+    const close = (result: string | null) => {
+      document.removeEventListener('keydown', handleKeydown);
+      document.body.removeChild(overlay);
+      resolve(result);
+    };
+
+    const submit = () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        errorEl.textContent = 'Name is required';
+        errorEl.hidden = false;
+        return;
+      }
+      if (existingGroups.includes(name)) {
+        errorEl.textContent = `A group named "${name}" already exists`;
+        errorEl.hidden = false;
+        return;
+      }
+      close(name);
+    };
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(null);
+    });
+
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close(null);
+    };
+    document.addEventListener('keydown', handleKeydown);
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+    });
+    dialog.querySelector('#dialog-cancel')!.addEventListener('click', () => close(null));
+    dialog.querySelector('#dialog-create')!.addEventListener('click', submit);
   });
 }
 
@@ -436,11 +536,12 @@ function buildControlFromDialog(dialog: HTMLElement): ControlDefinition | null {
   const id = (dialog.querySelector('#dialog-id') as HTMLInputElement).value.trim();
   const label = (dialog.querySelector('#dialog-label') as HTMLInputElement).value.trim();
   const descriptionValue = (dialog.querySelector('#dialog-description') as HTMLInputElement).value.trim();
+  const groupValue = (dialog.querySelector('#dialog-group') as HTMLInputElement).value.trim();
 
-  // Only include description if it has a value (exactOptionalPropertyTypes)
-  const base = descriptionValue
-    ? { id, label, description: descriptionValue }
-    : { id, label };
+  // Only include optional fields that have a value (exactOptionalPropertyTypes)
+  const base: { id: string; label: string; description?: string; group?: string } = { id, label };
+  if (descriptionValue) base.description = descriptionValue;
+  if (groupValue) base.group = groupValue;
 
   switch (type) {
     case 'slider': {
