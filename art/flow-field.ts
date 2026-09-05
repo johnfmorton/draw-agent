@@ -6,7 +6,11 @@
  * This artwork uses SVG.js for cleaner element creation.
  */
 
-import type { ControlSchema, InferValues, CanvasConfig } from '../src/controls/schema';
+import type {
+  ControlSchema,
+  InferValues,
+  CanvasConfig,
+} from '../src/controls/schema';
 import { createRandom } from '../src/random';
 import { canvasToPixels } from '../src/controls/schema';
 import { createCanvas } from '../src/svg-utils';
@@ -93,21 +97,21 @@ export const controls = [
   },
   {
     type: 'slider',
-    id: 'lineWidth',
-    label: 'Line Width',
-    min: 0.2,
-    max: 2,
-    step: 0.1,
-    default: 0.5,
-  },
-  {
-    type: 'slider',
     id: 'opacity',
     label: 'Opacity',
     min: 0.1,
     max: 1,
     step: 0.05,
     default: 0.4,
+  },
+  {
+    type: 'slider',
+    id: 'lineWidth',
+    label: 'Line Width',
+    min: 0.2,
+    max: 2,
+    step: 0.1,
+    default: 0.5,
   },
   {
     type: 'numeric',
@@ -176,25 +180,25 @@ function createNoise(seed: number) {
     return lerp(
       lerp(grad(aa, xf, yf), grad(ba, xf - 1, yf), u),
       lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u),
-      v
+      v,
     );
   };
 }
 
 export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const {
+    showCalibration,
+    borderMode,
+    borderInset,
     particles,
     stepLength,
     steps,
     noiseScale,
-    lineWidth,
     opacity,
+    lineWidth,
     angleOffset,
     flowBias,
     seed,
-    showCalibration,
-    borderMode,
-    borderInset,
   } = values;
 
   const random = createRandom(seed);
@@ -206,7 +210,8 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
   const { svg, draw } = createCanvas(canvasConfig);
 
   // Create group for all particle paths
-  const group = draw.group()
+  const group = draw
+    .group()
     .stroke({ color: 'black', width: lineWidth, opacity, linecap: 'round' })
     .fill('none');
 
