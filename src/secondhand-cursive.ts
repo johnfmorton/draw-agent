@@ -10,7 +10,9 @@
  * request appends its lettering when the fetch resolves, and every
  * later render embeds it synchronously from cache. The API is
  * deterministic per seed, so a cache hit is exact and repeat renders
- * never re-hit the 60/min throttle.
+ * never re-hit the 60/min throttle. A burst that does trip it (a big
+ * variant pool, a few quick re-rolls) is retried after a pause rather
+ * than dropped.
  *
  * The API token is read from `VITE_SECONDHAND_CURSIVE_TOKEN` in
  * `.env.local` (gitignored). Never put it in a control schema —
@@ -109,6 +111,64 @@ const responseCache = new Map<string, CursiveResponse>();
 const pendingFetches = new Map<string, Promise<CursiveResponse>>();
 
 /**
+ * Rate-limit handling. Rejected (429) calls don't count against the
+ * API's 60/min window, so a throttled request just waits and tries
+ * again, keeping its place in pendingFetches so re-renders dedupe onto
+ * it. Retry-After isn't readable cross-origin, so the pause is a flat
+ * interval, shared across requests so a throttled burst sleeps and
+ * retries as one wave.
+ */
+const RATE_LIMIT_RETRY_MS = 10_000;
+const RATE_LIMIT_MAX_RETRIES = 8;
+let rateLimitedUntil = 0;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function postRender(
+  request: Record<string, unknown>,
+  token: string,
+): Promise<CursiveResponse> {
+  for (let attempt = 0; ; attempt++) {
+    const pause = rateLimitedUntil - Date.now();
+    if (pause > 0) await sleep(pause);
+
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (response.status === 429 && attempt < RATE_LIMIT_MAX_RETRIES) {
+      if (Date.now() >= rateLimitedUntil) {
+        rateLimitedUntil = Date.now() + RATE_LIMIT_RETRY_MS;
+        console.warn(
+          `Secondhand Cursive: rate limited (60 renders/min), retrying in ${
+            RATE_LIMIT_RETRY_MS / 1000
+          }s`,
+        );
+      }
+      continue;
+    }
+    if (!response.ok) {
+      const body = (await response
+        .json()
+        .catch(() => ({ message: response.statusText }))) as {
+        message?: string;
+      };
+      throw new Error(
+        `Secondhand Cursive render failed (${response.status}): ${body.message}`,
+      );
+    }
+    return response.json() as Promise<CursiveResponse>;
+  }
+}
+
+/**
  * Fetch a render from the API, deduplicated and cached per request.
  * Returns the response synchronously on a cache hit, otherwise a
  * promise for it — see withCursive() for the pattern that hides this.
@@ -131,48 +191,26 @@ export function fetchCursive(
   let pending = pendingFetches.get(key);
   if (!pending) {
     const token = requireToken();
-    pending = fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const body = (await response
-            .json()
-            .catch(() => ({ message: response.statusText }))) as {
-            message?: string;
-          };
-          throw new Error(
-            `Secondhand Cursive render failed (${response.status}): ${body.message}`,
+    pending = postRender(request, token).then(
+      (result) => {
+        responseCache.set(key, result);
+        pendingFetches.delete(key);
+        if (result.missing_letterforms.length > 0) {
+          console.warn(
+            'Secondhand Cursive: missing letterforms',
+            result.missing_letterforms,
           );
         }
-        return response.json() as Promise<CursiveResponse>;
-      })
-      .then(
-        (result) => {
-          responseCache.set(key, result);
-          pendingFetches.delete(key);
-          if (result.missing_letterforms.length > 0) {
-            console.warn(
-              'Secondhand Cursive: missing letterforms',
-              result.missing_letterforms,
-            );
-          }
-          for (const warning of result.warnings) {
-            console.warn(`Secondhand Cursive: ${warning}`);
-          }
-          return result;
-        },
-        (error) => {
-          pendingFetches.delete(key);
-          throw error;
-        },
-      );
+        for (const warning of result.warnings) {
+          console.warn(`Secondhand Cursive: ${warning}`);
+        }
+        return result;
+      },
+      (error) => {
+        pendingFetches.delete(key);
+        throw error;
+      },
+    );
     pendingFetches.set(key, pending);
   }
   return pending;
