@@ -27,7 +27,15 @@ import { createRandom } from '../src/random';
 import { createCanvas } from '../src/svg-utils';
 import { drawCalibrationMarks } from '../src/calibration';
 import { applyBorderMask } from '../src/border-mask';
-import { cursiveGroup, withCursive, MM_TO_PX } from '../src/secondhand-cursive';
+import {
+  cursiveGroup,
+  fetchCursive,
+  MM_TO_PX,
+} from '../src/secondhand-cursive';
+import type {
+  CursiveOptions,
+  CursiveResponse,
+} from '../src/secondhand-cursive';
 
 export const meta = {
   title: 'Snow Cursive Study 2',
@@ -205,11 +213,20 @@ export const controls = [
     label: 'Word Length',
     group: 'Lettering',
     description:
-      'Target length of each word as a fraction of the arm. Shorter words mean more of them per segment; segments too short for a legible word are left blank',
+      'Target word length as a fraction of the arm: the slot size with equal slots, or the average word length when sizing per word. Shorter means more words per branch; branches too short for a word stay bare',
     min: 0.04,
     max: 0.5,
     step: 0.01,
     default: 0.25,
+  },
+  {
+    type: 'toggle',
+    id: 'sizePerWord',
+    label: 'Size Slots per Word',
+    group: 'Lettering',
+    description:
+      'On: every word is set at one letter size and packed along the branch by its own width, so phrases run longer than single words. Off: each branch is cut into equal slots and every word is squeezed to fit its slot',
+    default: true,
   },
   {
     type: 'slider',
@@ -251,8 +268,9 @@ export type Values = InferValues<typeof controls>;
 /**
  * The words written along the branches. The variant pool cycles through
  * this list, so 24 variants over three words gives each word eight
- * different hands. Every word is scaled to its slot's width, so a word
- * much longer than its neighbors gets smaller letters.
+ * different hands. With Size Slots per Word on, every entry is set at
+ * one letter size and a phrase simply runs longer along its branch; off,
+ * each is squeezed into an equal slot.
  */
 const WORDS = ['happy', 'new', 'year', 'good tidings', 'john and andrew'];
 const DEG = Math.PI / 180;
@@ -372,18 +390,20 @@ interface WordSlot {
   widthPx: number;
   /** Radians, same convention as Segment.angle. */
   angle: number;
-  variant: number;
+  /** Index into the pool of rendered hands. */
+  hand: number;
 }
 
 /**
- * Divide each segment into as many word slots as fit the target
- * length, rounding so words land between two-thirds and one-and-a-third
- * of the target. Slots too narrow for a legible word are dropped.
+ * Equal slots: divide each segment into as many slots as fit the
+ * target length, rounding so slots land between two-thirds and
+ * one-and-a-third of the target, and squeeze whatever hand is picked
+ * into its slot. Slots too narrow for a legible word are dropped.
  */
-function layoutWords(
+function layoutSlots(
   arm: Arm,
   targetPx: number,
-  variants: number,
+  hands: number,
   pick: () => number,
 ): WordSlot[] {
   const slots: WordSlot[] = [];
@@ -397,11 +417,84 @@ function layoutWords(
         center: vec2.add(seg.from, vec2.fromAngle(seg.angle, (j + 0.5) * slot)),
         widthPx,
         angle: seg.angle,
-        variant: Math.floor(pick() * variants),
+        hand: Math.floor(pick() * hands),
       });
     }
   }
   return slots;
+}
+
+/**
+ * Sized per word: pack hands along each segment at one letter size,
+ * each taking its own rendered width. Hands are picked at random; when
+ * the pick would overrun the tip, the next hand in the pool that still
+ * fits is used instead. The run is centered on the segment, and a
+ * segment too short for even the narrowest hand stays bare.
+ */
+function layoutPacked(
+  arm: Arm,
+  widths: number[],
+  gapPx: number,
+  pick: () => number,
+): WordSlot[] {
+  const slots: WordSlot[] = [];
+  const narrowest = Math.min(...widths);
+  for (const seg of arm.segments) {
+    const run: number[] = [];
+    let used = 0;
+    for (;;) {
+      const room = seg.length - used - (run.length > 0 ? gapPx : 0);
+      if (room < narrowest) break;
+      let hand = Math.floor(pick() * widths.length);
+      for (let k = 0; k < widths.length && widths[hand] > room; k++) {
+        hand = (hand + 1) % widths.length;
+      }
+      run.push(hand);
+      used += (run.length > 1 ? gapPx : 0) + widths[hand];
+    }
+    let cursor = (seg.length - used) / 2;
+    for (const hand of run) {
+      const w = widths[hand];
+      slots.push({
+        center: vec2.add(seg.from, vec2.fromAngle(seg.angle, cursor + w / 2)),
+        widthPx: w,
+        angle: seg.angle,
+        hand,
+      });
+      cursor += w + gapPx;
+    }
+  }
+  return slots;
+}
+
+/**
+ * Fetch every hand in the pool, then pass the ones that rendered to
+ * `layout`: synchronously when all are cached, otherwise once the
+ * fetches settle (skipped if the preview has moved on). A hand that
+ * fails to render is left out rather than blocking the rest.
+ */
+function withHands(
+  svg: SVGSVGElement,
+  requests: CursiveOptions[],
+  layout: (hands: CursiveResponse[]) => void,
+): void {
+  const results = requests.map((request) => fetchCursive(request));
+  if (results.every((r) => !(r instanceof Promise))) {
+    layout(results as CursiveResponse[]);
+    return;
+  }
+  void Promise.allSettled(results).then((settled) => {
+    if (!svg.isConnected) return;
+    const hands = settled.flatMap((s) =>
+      s.status === 'fulfilled' ? [s.value] : [],
+    );
+    if (hands.length < settled.length) {
+      console.warn(
+        `${meta.title}: ${settled.length - hands.length} of ${settled.length} hands failed to render; laying out with the rest`,
+      );
+    }
+    layout(hands);
+  });
 }
 
 const fmt = (n: number) => String(Math.round(n * 100) / 100);
@@ -423,6 +516,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     jitter,
     renderMode,
     wordLength,
+    sizePerWord,
     wordVariants,
     letteringSeed,
     penWidth,
@@ -482,62 +576,67 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     }
 
     if (renderMode !== 'lines') {
-      // Variant assignment is decided once for the arm, then replicated,
-      // so every arm is an exact rotated copy.
-      const pick = createRandom(seed);
-      const slots = layoutWords(arm, wordLength * radius, wordVariants, pick);
-
-      const total = slots.length * arms;
-      if (total > MAX_WORDS) {
-        console.warn(
-          `Snow Cursive Study 2: ${total} words requested, capping at ${MAX_WORDS}. ` +
-            'Lower Branch Levels, Branches per Level, or Arms, or raise Word Length.',
-        );
-      }
-
-      // One fetch per variant, placed everywhere that variant appears.
-      type Placement = { center: Vec2; widthPx: number; rotateDeg: number };
-      const byVariant = new Map<number, Placement[]>();
-      let placed = 0;
-      for (const armAngle of armAngles) {
-        for (const slot of slots) {
-          if (placed++ >= MAX_WORDS) break;
-          const list = byVariant.get(slot.variant) ?? [];
-          list.push({
-            center: place(slot.center, armAngle),
-            widthPx: slot.widthPx,
-            rotateDeg: (slot.angle + armAngle) / DEG,
-          });
-          byVariant.set(slot.variant, list);
-        }
-      }
-
-      // Distinct seeds per variant so each render is a different hand.
+      // Distinct seeds per hand so each render is different handwriting.
       // They hang off the lettering seed alone, so rolling the main seed
       // re-uses the cached renders instead of re-hitting the API.
-      const variantSeed = (i: number) =>
+      const handSeed = (i: number) =>
         1 + ((letteringSeed + i * 1_000_003) % 2_147_483_646);
+      const pool = Array.from({ length: wordVariants }, (_, i) => ({
+        text: WORDS[i % WORDS.length],
+        seed: handSeed(i),
+      }));
+      const targetPx = wordLength * radius;
 
-      for (const [variant, placements] of byVariant) {
-        withCursive(
-          svg,
-          { text: WORDS[variant % WORDS.length], seed: variantSeed(variant) },
-          (rendered) => {
-            for (const p of placements) {
-              const scale = p.widthPx / rendered.width_mm;
-              const h = rendered.height_mm * scale;
-              const g = cursiveGroup(rendered, {
-                x: p.center.x - p.widthPx / 2,
-                y: p.center.y - h / 2,
-                scale,
-                penWidthMm: penWidth,
-                rotateDeg: p.rotateDeg,
-              });
-              if (g) svg.appendChild(g);
-            }
-          },
-        );
-      }
+      withHands(svg, pool, (hands) => {
+        if (hands.length === 0) return;
+
+        // Layout is decided once for the arm, then replicated, so every
+        // arm is an exact rotated copy.
+        const pick = createRandom(seed);
+        let slots: WordSlot[];
+        if (sizePerWord) {
+          // One scale for every hand: the average hand lands at the
+          // target length, so phrases run longer and short words shorter.
+          const meanMm =
+            hands.reduce((sum, h) => sum + h.width_mm, 0) / hands.length;
+          const scale = targetPx / meanMm;
+          slots = layoutPacked(
+            arm,
+            hands.map((h) => h.width_mm * scale),
+            targetPx * (1 - WORD_FILL),
+            pick,
+          );
+        } else {
+          slots = layoutSlots(arm, targetPx, hands.length, pick);
+        }
+
+        const total = slots.length * arms;
+        if (total > MAX_WORDS) {
+          console.warn(
+            `${meta.title}: ${total} words requested, capping at ${MAX_WORDS}. ` +
+              'Lower Branch Levels, Branches per Level, or Arms, or raise Word Length.',
+          );
+        }
+
+        let placed = 0;
+        for (const armAngle of armAngles) {
+          for (const slot of slots) {
+            if (placed++ >= MAX_WORDS) break;
+            const rendered = hands[slot.hand];
+            const scale = slot.widthPx / rendered.width_mm;
+            const h = rendered.height_mm * scale;
+            const center = place(slot.center, armAngle);
+            const g = cursiveGroup(rendered, {
+              x: center.x - slot.widthPx / 2,
+              y: center.y - h / 2,
+              scale,
+              penWidthMm: penWidth,
+              rotateDeg: (slot.angle + armAngle) / DEG,
+            });
+            if (g) svg.appendChild(g);
+          }
+        }
+      });
     }
 
     // Clip everything drawn so far to the safe area, so the pen physically
