@@ -14,9 +14,10 @@
  * variant pool, a few quick re-rolls) is retried after a pause rather
  * than dropped.
  *
- * The API token is read from `VITE_SECONDHAND_CURSIVE_TOKEN` in
- * `.env.local` (gitignored). Never put it in a control schema —
- * control values are encoded into shareable URLs.
+ * The endpoint and API token come from `.env.local` via
+ * src/secondhand-config.ts (shared with the plot-jobs client). Never
+ * put the token in a control schema — control values are encoded into
+ * shareable URLs.
  *
  * @example
  * ```typescript
@@ -35,9 +36,10 @@
  * ```
  */
 
-const API_URL =
-  import.meta.env.VITE_SECONDHAND_CURSIVE_URL ??
-  'https://secondhand-cursive.ddev.site/api/v1/svg';
+import {
+  SECONDHAND_CURSIVE_URL as API_URL,
+  requireSecondhandToken as requireToken,
+} from './secondhand-config';
 
 export const DEFAULT_CURSIVE_FONT = 'johnfmorton-cursive-v2-2';
 
@@ -94,17 +96,6 @@ export interface CursiveResponse {
     count: number;
   }>;
   seed: number;
-}
-
-function requireToken(): string {
-  const token = import.meta.env.VITE_SECONDHAND_CURSIVE_TOKEN;
-  if (!token) {
-    throw new Error(
-      'Secondhand Cursive: set VITE_SECONDHAND_CURSIVE_TOKEN in .env.local ' +
-        '(see docs/secondhand-cursive-api.md), then restart the dev server',
-    );
-  }
-  return token;
 }
 
 const responseCache = new Map<string, CursiveResponse>();

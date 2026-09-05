@@ -186,3 +186,58 @@ Renders are live typesetting, not cached lookups — for artwork that
 places many phrases, render each phrase once and reuse the result
 rather than re-fetching per frame or per control tweak, and stay under
 the 60/min throttle.
+
+## Plot jobs
+
+The same server runs the plot queue. CursivePlotter, the Mac app beside
+the AxiDraw, polls it every few seconds, claims the next queued job,
+runs `axicli` on the SVG and reports back — so Draw Agent never talks
+to the Mac app. The Plot button (header, left of Export SVG) queues a
+job here and then polls it for status. Spec: BUILD_SPEC §9.2 in the
+Secondhand Cursive repo.
+
+**Base URL**: the render endpoint's origin plus `/api/v1/plot-jobs`
+(`plotJobsUrlFrom()` in `src/plot/plot-client.ts` derives it from
+`VITE_SECONDHAND_CURSIVE_URL`). Same bearer token as rendering, with
+`Accept: application/json`. The token's user must be the super admin
+(the plotter is one person's), and the routes have their own 120/min
+throttle so status polling never competes with lettering renders.
+
+| Call | Body / query | Answer |
+|---|---|---|
+| `POST /plot-jobs` | `{label ≤120, svg, mode: "preview" or "plot", source: "draw-agent"}` | `201 {id, status: "queued"}` |
+| `GET /plot-jobs/{id}` | — | `{id, label, source, mode, status, position, estimate, log_tail, created_at, started_at, finished_at, plot_allowed, agent}` |
+| `GET /plot-jobs?source=draw-agent` | — | `{jobs: [row…] (latest 20), agent}` |
+| `POST /plot-jobs/{id}/cancel` | — | `{ok: true, status: "canceled"}`; 422 unless queued |
+
+- `status` runs `queued → running → completed`, `failed` or `canceled`.
+- `estimate` (parsed from the axicli log on completion): `time_text`,
+  `seconds`, `pendown_distance_m`, `total_distance_m`.
+- `agent` is `{name, online}` — `online` means the Mac app has polled
+  within the last 30 s; while it is offline, jobs simply wait in the
+  queue. Null when the server plots locally.
+- `plot_allowed`: a completed preview of this job's exact SVG exists.
+
+**Guardrails** (422 with a `message`): a `plot` is refused until a
+preview of the *byte-identical* SVG has completed — so rebuilding with
+different optimization options needs a new preview, which is why "Plot
+now" in the dialog re-sends the very string it previewed — and an
+identical SVG already queued or running is refused as a duplicate.
+Other errors: 401 bad token, 403 not the super admin, 429 throttled.
+
+```bash
+BASE=https://secondhand-cursive.ddev.site/api/v1
+H=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/json")
+curl -s "$BASE/plot-jobs?source=draw-agent" "${H[@]}"
+curl -s "$BASE/plot-jobs" "${H[@]}" -H "Content-Type: application/json" \
+  -d '{"label":"curl smoke","mode":"preview","source":"draw-agent","svg":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10mm\" height=\"10mm\" viewBox=\"0 0 10 10\"><path d=\"M 1 1 L 9 9\" fill=\"none\" stroke=\"black\" stroke-width=\"0.3\"/></svg>"}'
+curl -s "$BASE/plot-jobs/ID" "${H[@]}"
+```
+
+**Flow in Draw Agent**: `handlePlot()` in `src/main.ts` opens
+`openPlotDialog()` (`src/plot/plot-dialog.ts`) with a `buildSvg`
+callback that runs `buildExportSvg()` on the live preview at send time
+— the same string Export SVG would download. The dialog posts a
+preview, polls the job every 2 s while open, and offers Plot now once
+`plot_allowed` is true. Pen speeds and heights are the server's
+`config/plotter.php`; the dialog never sends them.

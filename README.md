@@ -247,6 +247,8 @@ export function draw(values: Values, canvas: CanvasConfig): SVGElement {
 
 - **Artwork Selector** — Switch between artwork files in the `art/` directory
 - **Canvas Size** — Adjust width, height, and units; use presets for common paper sizes
+- **Plot** — Queue the artwork on the CursivePlotter via the Secondhand Cursive server (preview first for an estimate, then plot); see `docs/secondhand-cursive-api.md`
+- **Export SVG** — Download a plotter-ready SVG
 - **Reset** — Restore all values to file defaults
 - **Copy URL** — Copy the current state URL to clipboard for sharing
 

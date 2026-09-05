@@ -48,7 +48,12 @@ import {
   loadCollapsedGroups,
   saveCollapsedGroups,
 } from './sync/local-storage';
-import { exportSVG, openExportDialog } from './export/svg-export';
+import {
+  buildExportSvg,
+  exportSVG,
+  openExportDialog,
+} from './export/svg-export';
+import { openPlotDialog } from './plot/plot-dialog';
 import {
   installConsoleCapture,
   initConsolePanel,
@@ -91,6 +96,7 @@ const headerActionsEl = document.getElementById('header-actions')!;
 const resetBtn = document.getElementById('reset-btn')!;
 const copyUrlBtn = document.getElementById('copy-url-btn')!;
 const exportSvgBtn = document.getElementById('export-svg-btn')!;
+const plotBtn = document.getElementById('plot-btn')!;
 const addControlBtn = document.getElementById('add-control-btn')!;
 const addGroupBtn = document.getElementById('add-group-btn')!;
 const exportControlsBtn = document.getElementById('export-controls-btn')!;
@@ -167,6 +173,7 @@ async function init() {
   resetBtn.onclick = handleResetAll;
   copyUrlBtn.onclick = handleCopyUrl;
   exportSvgBtn.onclick = handleExportSvg;
+  plotBtn.onclick = handlePlot;
   addControlBtn.onclick = handleAddControl;
   addGroupBtn.onclick = handleNewGroup;
   exportControlsBtn.onclick = handleExportControls;
@@ -486,6 +493,36 @@ async function handleExportSvg() {
   setTimeout(() => {
     exportSvgBtn.textContent = 'Export SVG';
   }, 2000);
+}
+
+/**
+ * Handle sending the artwork to the CursivePlotter queue. The SVG is
+ * built from the live preview at send time, exactly as an export would
+ * be, so lettering that arrived after the initial draw is included and
+ * the string never lives in app state.
+ */
+async function handlePlot() {
+  if (!previewEl.querySelector('svg')) {
+    console.error('No SVG to plot');
+    return;
+  }
+
+  await openPlotDialog({
+    artworkTitle: currentArtwork?.meta.title ?? currentArtworkName,
+    canvas: currentCanvas,
+    defaultLabel: currentArtworkName,
+    buildSvg: (options) => {
+      const svg = previewEl.querySelector('svg') as SVGSVGElement | null;
+      if (!svg) throw new Error('The preview is empty — nothing to send');
+      return buildExportSvg(svg, currentCanvas, options);
+    },
+    onQueued: () => {
+      plotBtn.textContent = 'Queued!';
+      setTimeout(() => {
+        plotBtn.textContent = 'Plot';
+      }, 2000);
+    },
+  });
 }
 
 /**

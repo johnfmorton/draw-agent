@@ -11,7 +11,7 @@ A web-based coding playground for generative art created with an AxiDraw pen plo
 - **localStorage** for working state persistence
 - **File System** via Vite plugin for optional save-to-file
 
-This is a local-only application. No backend, no database, no deployment.
+This is a local-only application. No backend, no database, no deployment. Its only network calls are outbound, to John's Secondhand Cursive server: cursive lettering and the plot queue, both with a token from `.env.local`.
 
 ## Project Structure
 
@@ -29,6 +29,14 @@ draw-agent/
 │   ├── random.ts               # Seeded PRNG (Mulberry32)
 │   ├── svg-utils.ts            # SVG.js helpers (createCanvas, createRawCanvas)
 │   ├── vite-env.d.ts           # Vite type declarations
+│   ├── secondhand-config.ts    # Secondhand Cursive URL + token from .env.local
+│   ├── secondhand-cursive.ts   # Cursive lettering via the Secondhand Cursive render API
+│   ├── export/
+│   │   ├── svg-export.ts       # Export dialog, buildExportSvg (border mask + optimizer)
+│   │   └── axidraw-optimizer.ts # Path ordering for the AxiDraw
+│   ├── plot/
+│   │   ├── plot-client.ts      # Secondhand Cursive plot-jobs API client
+│   │   └── plot-dialog.ts      # "Send to CursivePlotter" dialog (send + live status)
 │   ├── controls/
 │   │   ├── schema.ts           # Control & canvas type definitions
 │   │   ├── control-list.ts     # Renders list of controls with dirty state
@@ -165,6 +173,21 @@ on a clone via `reapplyBorderMask` — the mask bounds are stamped on the svg
 root — so geometry that arrived after the initial draw (async Secondhand
 Cursive lettering) is clipped too, and anything unrewritable is removed.
 An exported SVG therefore needs no vpype/post-processing before plotting.
+
+### Plotting via CursivePlotter
+
+The header's **Plot** button (left of Export SVG) opens a dialog that
+queues the artwork on the Secondhand Cursive server's plot queue, which
+CursivePlotter — the Mac app beside the AxiDraw — polls and plots;
+Draw Agent never talks to the Mac app directly. The dialog builds the
+same string `buildExportSvg` would export, at send time from the live
+preview, and posts it with the lettering token
+(`src/plot/plot-client.ts`, `src/plot/plot-dialog.ts`,
+`docs/secondhand-cursive-api.md`). Preview first: the server refuses a
+plot until a preview of the byte-identical SVG has completed, so the
+dialog's "Plot now" re-sends exactly the string it previewed. Pen
+speeds and heights are server configuration; the dialog only offers
+mode, a label, and the two export optimisation checkboxes.
 
 ### Control Types
 
@@ -349,7 +372,7 @@ Split pane layout:
 - App title
 - Artwork selector
 - Canvas size controls (width × height with unit, preset dropdown, reset)
-- Reset All and Copy URL buttons
+- Plot (send to the CursivePlotter queue), Export SVG, Reset All, and Copy URL buttons
 
 ## Key Workflows
 
@@ -437,7 +460,7 @@ The `saveValuesPlugin` provides a dev server endpoint for writing values to side
 3. **Minimal friction**: HMR for instant feedback, localStorage for session persistence
 4. **Portable artwork**: Each artwork file is self-contained and runnable outside the playground
 5. **No over-engineering**: Vanilla TS/HTML/CSS, no framework dependencies
-6. **Local-only**: No server, no auth, no deployment concerns
+6. **Local-only**: No server of its own, no auth, no deployment concerns — the Secondhand Cursive integrations are outbound calls with a token from `.env.local`
 
 ## Versioning and Changelog
 
@@ -479,7 +502,7 @@ When releasing a new version, move items from `[Unreleased]` to a new version se
 
 ## Future Considerations
 
-- SVG export for plotter (download button)
+- Recent plot jobs list in the Plot dialog (the list endpoint is already fetched for agent status)
 - Undo/redo for value changes
 - Conditional control visibility (show control B only if control A is true)
 - Preset management UI (save/load named presets)

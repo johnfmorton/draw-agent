@@ -289,3 +289,81 @@
 .dialog-hint.is-error {
   color: var(--danger);
 }
+
+/* Plot dialog (send to CursivePlotter) */
+.plot-dialog {
+  min-width: 440px;
+}
+
+.plot-dialog [hidden] {
+  display: none !important;
+}
+
+.plot-summary {
+  margin: -12px 0 16px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.plot-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.plot-badge {
+  padding: 2px 9px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.plot-badge.is-queued {
+  color: var(--accent);
+  background: rgba(74, 158, 255, 0.15);
+}
+
+.plot-badge.is-running {
+  color: #e5c07b;
+  background: rgba(229, 192, 123, 0.15);
+}
+
+.plot-badge.is-completed {
+  color: #98c379;
+  background: rgba(152, 195, 121, 0.15);
+}
+
+.plot-badge.is-failed,
+.plot-badge.is-canceled {
+  color: var(--danger);
+  background: rgba(255, 107, 107, 0.15);
+}
+
+.plot-estimate {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.plot-log {
+  max-height: 160px;
+  overflow: auto;
+  margin: 0 0 12px 0;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.plot-log:empty {
+  display: none;
+}
