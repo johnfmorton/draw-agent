@@ -227,6 +227,15 @@ export const controls = [
     default: true,
   },
   {
+    type: 'toggle',
+    id: 'insetBranches',
+    label: 'Inset Branch Words',
+    group: 'Lettering',
+    description:
+      "Start each branch's lettering far enough from its parent that the first word's x-height band clears the parent's, worked out from the letter size and the branch angle (ascenders and descenders can still touch). Off lets branch words run from the junction and overlap the parent",
+    default: true,
+  },
+  {
     type: 'slider',
     id: 'wordVariants',
     label: 'Word Variants',
@@ -272,6 +281,8 @@ export type Values = InferValues<typeof controls>;
  */
 const WORDS = ['happy', 'new', 'year', 'good tidings', 'john and andrew'];
 const DEG = Math.PI / 180;
+/** x-height every hand is requested at, in mm; the layout scales from there. */
+const X_HEIGHT_MM = 4;
 /** Fraction of each word slot the ink spans; the rest is the gap to the next word. */
 const WORD_FILL = 0.88;
 /** Words narrower than this (4 mm on paper) are illegible with a plot pen. */
@@ -290,6 +301,8 @@ interface Segment {
   /** Direction in radians, screen coordinates (y down). */
   angle: number;
   length: number;
+  /** Angle to the parent in radians; null for the stem. */
+  spread: number | null;
 }
 
 /** One arm, grown along +x from the origin. */
@@ -326,9 +339,10 @@ function growArm(length: number, rules: GrowthRules): Arm {
     len: number,
     level: number,
     path: number,
+    spread: number | null,
   ): Vec2 => {
     const to = vec2.add(from, vec2.fromAngle(angle, len));
-    arm.segments.push({ from, to, angle, length: len });
+    arm.segments.push({ from, to, angle, length: len, spread });
     if (level >= rules.branchLevels) return to;
 
     const count = rules.branchCount;
@@ -363,6 +377,7 @@ function growArm(length: number, rules: GrowthRules): Arm {
         childLength,
         level + 1,
         pairPath,
+        spread,
       );
       const right = grow(
         junction,
@@ -370,6 +385,7 @@ function growArm(length: number, rules: GrowthRules): Arm {
         childLength,
         level + 1,
         pairPath,
+        spread,
       );
       arm.strokes.push([left, junction, right]);
     }
@@ -377,9 +393,36 @@ function growArm(length: number, rules: GrowthRules): Arm {
   };
 
   const origin = { x: 0, y: 0 };
-  const tip = grow(origin, 0, length, 0, 0);
+  const tip = grow(origin, 0, length, 0, 0, null);
   arm.strokes.unshift([origin, tip]);
   return arm;
+}
+
+/**
+ * Start each branch's lettering far enough along the branch that the
+ * first word's x-height band clears its parent's. The band is bandH
+ * tall and the branch leaves the parent at `spread`, so the band corner
+ * nearest the parent sits d·sin(spread) − (bandH / 2)·|cos(spread)| from
+ * the parent line; clearing bandH / 2 needs d ≥ (bandH / 2)(1 + |cos|)
+ * / sin. Ascenders and descenders can still touch — this is meant as a
+ * small inset. Branches shorter than their inset are left bare; the
+ * stem has no parent and is untouched.
+ */
+function insetFromParent(segments: Segment[], bandH: number): Segment[] {
+  return segments.flatMap((seg) => {
+    if (seg.spread === null) return [seg];
+    const a = clamp(Math.abs(seg.spread), 5 * DEG, 175 * DEG);
+    const inset = ((bandH / 2) * (1 + Math.abs(Math.cos(a)))) / Math.sin(a);
+    const length = seg.length - inset;
+    if (length <= 0) return [];
+    return [
+      {
+        ...seg,
+        from: vec2.add(seg.from, vec2.fromAngle(seg.angle, inset)),
+        length,
+      },
+    ];
+  });
 }
 
 /** One word on the unrotated arm: ink box centered on the segment line. */
@@ -399,13 +442,13 @@ interface WordSlot {
  * into its slot. Slots too narrow for a legible word are dropped.
  */
 function layoutSlots(
-  arm: Arm,
+  segments: Segment[],
   targetPx: number,
   hands: number,
   pick: () => number,
 ): WordSlot[] {
   const slots: WordSlot[] = [];
-  for (const seg of arm.segments) {
+  for (const seg of segments) {
     const count = Math.max(1, Math.round(seg.length / targetPx));
     const slot = seg.length / count;
     const widthPx = slot * WORD_FILL;
@@ -430,14 +473,14 @@ function layoutSlots(
  * segment too short for even the narrowest hand stays bare.
  */
 function layoutPacked(
-  arm: Arm,
+  segments: Segment[],
   widths: number[],
   gapPx: number,
   pick: () => number,
 ): WordSlot[] {
   const slots: WordSlot[] = [];
   const narrowest = Math.min(...widths);
-  for (const seg of arm.segments) {
+  for (const seg of segments) {
     const run: number[] = [];
     let used = 0;
     for (;;) {
@@ -515,6 +558,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     renderMode,
     wordLength,
     sizePerWord,
+    insetBranches,
     wordVariants,
     letteringSeed,
     penWidth,
@@ -582,6 +626,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
       const pool = Array.from({ length: wordVariants }, (_, i) => ({
         text: WORDS[i % WORDS.length],
         seed: handSeed(i),
+        x_height_mm: X_HEIGHT_MM,
       }));
       const targetPx = wordLength * radius;
 
@@ -591,22 +636,29 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
         // Layout is decided once for the arm, then replicated, so every
         // arm is an exact rotated copy.
         const pick = createRandom(seed);
-        let slots: WordSlot[];
-        if (sizePerWord) {
-          // One scale for every hand: the average hand lands at the
-          // target length, so phrases run longer and short words shorter.
-          const meanMm =
-            hands.reduce((sum, h) => sum + h.width_mm, 0) / hands.length;
-          const scale = targetPx / meanMm;
-          slots = layoutPacked(
-            arm,
-            hands.map((h) => h.width_mm * scale),
-            targetPx * (1 - WORD_FILL),
-            pick,
-          );
-        } else {
-          slots = layoutSlots(arm, targetPx, hands.length, pick);
-        }
+
+        // Packed mode uses one scale for every hand: the average hand
+        // lands at the target length, so phrases run longer and short
+        // words shorter. The x-height at either mode's size is the band
+        // the branch inset has to clear.
+        const meanMm =
+          hands.reduce((sum, h) => sum + h.width_mm, 0) / hands.length;
+        const packedScale = targetPx / meanMm;
+        const xHeightPx =
+          X_HEIGHT_MM *
+          (sizePerWord ? packedScale : (targetPx * WORD_FILL) / meanMm);
+        const segments = insetBranches
+          ? insetFromParent(arm.segments, xHeightPx)
+          : arm.segments;
+
+        const slots = sizePerWord
+          ? layoutPacked(
+              segments,
+              hands.map((h) => h.width_mm * packedScale),
+              targetPx * (1 - WORD_FILL),
+              pick,
+            )
+          : layoutSlots(segments, targetPx, hands.length, pick);
 
         const total = slots.length * arms;
         if (total > MAX_WORDS) {
