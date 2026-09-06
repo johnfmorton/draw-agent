@@ -27,6 +27,7 @@ import {
   getWriteControlsToFilePreference,
 } from './controls/control-dialog';
 import type { ControlDefinition } from './controls/schema';
+import { rollGroup } from './controls/randomize';
 import {
   parseUrlState,
   encodeUrlState,
@@ -70,6 +71,8 @@ declare global {
     __drawAgentPendingCreate?: { name: string; timer: number };
     /** Preview refit observer; replaced on each HMR re-run of main.ts. */
     __drawAgentPreviewObserver?: ResizeObserver;
+    /** A preview draw scheduled for the next frame; cancelled on HMR re-run. */
+    __drawAgentPreviewFrame?: number;
   }
 }
 
@@ -347,6 +350,23 @@ function showLoadError(failedPath: string) {
  * Handle value changes from controls.
  */
 function handleValueChange(id: string, value: unknown) {
+  // A randomizer's new phrase re-rolls its whole group, so the rows it
+  // touched need a full re-render (a click or Enter has no drag state
+  // to preserve).
+  const control = currentControls.find((c) => c.id === id);
+  if (control?.type === 'randomizer') {
+    currentValues = {
+      ...currentValues,
+      [id]: value,
+      ...rollGroup(currentControls, control, String(value)),
+    };
+    saveWorkingValues(currentArtworkName, currentValues);
+    updateUrlFromState();
+    renderControls();
+    renderPreview();
+    return;
+  }
+
   currentValues = { ...currentValues, [id]: value };
 
   // Persist and update URL
@@ -477,6 +497,7 @@ async function handleCopyUrl() {
  * Handle exporting SVG for AxiDraw.
  */
 async function handleExportSvg() {
+  flushPreview();
   const svg = previewEl.querySelector('svg') as SVGSVGElement | null;
   if (!svg) {
     console.error('No SVG to export');
@@ -502,6 +523,7 @@ async function handleExportSvg() {
  * the string never lives in app state.
  */
 async function handlePlot() {
+  flushPreview();
   if (!previewEl.querySelector('svg')) {
     console.error('No SVG to plot');
     return;
@@ -512,6 +534,7 @@ async function handlePlot() {
     canvas: currentCanvas,
     defaultLabel: currentArtworkName,
     buildSvg: (options) => {
+      flushPreview();
       const svg = previewEl.querySelector('svg') as SVGSVGElement | null;
       if (!svg) throw new Error('The preview is empty — nothing to send');
       return buildExportSvg(svg, currentCanvas, options);
@@ -844,10 +867,42 @@ function renderCaption() {
   }
 }
 
+/** The preview draw scheduled for the next frame, if any. */
+let previewFrame: number | null = null;
+
 /**
- * Render the SVG preview.
+ * Render the SVG preview on the next animation frame. A draw is
+ * synchronous and can be heavy, and the events that arrive while one
+ * runs — a burst of clicks on a randomizer's 🎲, a slider drag — queue
+ * up behind it; deferring lets those requests collapse into a single
+ * draw of the latest state instead of one draw each.
  */
 function renderPreview() {
+  if (!currentArtwork || previewFrame !== null) return;
+  previewFrame = requestAnimationFrame(() => {
+    previewFrame = null;
+    delete window.__drawAgentPreviewFrame;
+    drawPreview();
+  });
+  window.__drawAgentPreviewFrame = previewFrame;
+}
+
+/**
+ * Draw a pending preview right away, for callers about to read the
+ * preview's svg (export, plot) so they see the current values.
+ */
+function flushPreview() {
+  if (previewFrame === null) return;
+  cancelAnimationFrame(previewFrame);
+  previewFrame = null;
+  delete window.__drawAgentPreviewFrame;
+  drawPreview();
+}
+
+/**
+ * Draw the SVG preview now.
+ */
+function drawPreview() {
   if (!currentArtwork) return;
 
   try {
@@ -898,6 +953,13 @@ function fitPreviewSvg() {
   );
   previewSvgEl.style.width = `${pixels.width * scale}px`;
   previewSvgEl.style.height = `${pixels.height * scale}px`;
+}
+
+// A preview draw scheduled by a prior run of main.ts would draw with
+// that run's stale state; drop it — init() renders afresh.
+if (window.__drawAgentPreviewFrame !== undefined) {
+  cancelAnimationFrame(window.__drawAgentPreviewFrame);
+  delete window.__drawAgentPreviewFrame;
 }
 
 // Refit when the pane resizes (window resize, editor/console toggling).

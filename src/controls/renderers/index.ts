@@ -8,6 +8,7 @@ import { renderNumeric } from './numeric';
 import { renderPoint2D } from './point2d';
 import { renderVector } from './vector';
 import { renderRectangle } from './rectangle';
+import { renderRandomizer } from './randomizer';
 
 export type { ControlChangeHandler };
 
@@ -26,6 +27,7 @@ const renderers: Record<string, ControlRenderer> = {
   point2d: renderPoint2D as ControlRenderer,
   vector: renderVector as ControlRenderer,
   rectangle: renderRectangle as ControlRenderer,
+  randomizer: renderRandomizer as ControlRenderer,
 };
 
 /**

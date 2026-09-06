@@ -6,11 +6,13 @@ import type {
   ToggleControl,
   DropdownControl,
   SeedControl,
+  RandomizerControl,
   Point2DControl,
   VectorControl,
   RectangleControl,
 } from './schema';
 import { generateControlsBlock } from '../artwork-template';
+import { randomPhrase } from './randomize';
 
 export type ControlDialogResult =
   | { action: 'create'; control: ControlDefinition; writeToFile: boolean }
@@ -58,6 +60,7 @@ const CONTROL_TYPES: { value: ControlType; label: string }[] = [
   { value: 'toggle', label: 'Toggle' },
   { value: 'dropdown', label: 'Dropdown' },
   { value: 'seed', label: 'Seed / Randomize' },
+  { value: 'randomizer', label: 'Group Randomizer' },
   { value: 'point2d', label: '2D Point' },
   { value: 'vector', label: 'Vector' },
   { value: 'rectangle', label: 'Rectangle' },
@@ -417,6 +420,16 @@ function getTypeFieldsHtml(type: ControlType, existing?: ControlDefinition): str
       `;
     }
 
+    case 'randomizer': {
+      const ctrl = existing as RandomizerControl | undefined;
+      return `
+        <div class="dialog-field">
+          <label>Default Phrase <span class="dialog-hint">(changing the phrase re-rolls every other control in the group)</span></label>
+          <input type="text" id="field-default" value="${escapeHtml(ctrl?.default ?? randomPhrase())}" spellcheck="false">
+        </div>
+      `;
+    }
+
     case 'point2d': {
       const ctrl = existing as Point2DControl | undefined;
       return `
@@ -592,6 +605,11 @@ function buildControlFromDialog(dialog: HTMLElement): ControlDefinition | null {
     case 'seed': {
       const defaultVal = parseInt((dialog.querySelector('#field-default') as HTMLInputElement).value, 10);
       return { type: 'seed', ...base, default: defaultVal } as SeedControl;
+    }
+
+    case 'randomizer': {
+      const phrase = (dialog.querySelector('#field-default') as HTMLInputElement).value.trim();
+      return { type: 'randomizer', ...base, default: phrase || randomPhrase() } as RandomizerControl;
     }
 
     case 'point2d': {

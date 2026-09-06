@@ -396,13 +396,15 @@
   width: 100%;
 }
 
-/* Seed Control */
-.control-seed {
+/* Seed and Group Randomizer controls */
+.control-seed,
+.control-randomizer {
   flex: 1;
   min-width: 0;
 }
 
-.control-seed input {
+.control-seed input,
+.control-randomizer input {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
@@ -414,7 +416,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.control-seed input:focus {
+.control-seed input:focus,
+.control-randomizer input:focus {
   outline: none;
   border-color: var(--accent);
 }

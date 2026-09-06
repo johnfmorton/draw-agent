@@ -245,6 +245,8 @@ function controlToTypeScript(control: ControlDefinition): string {
     }
     case 'seed':
       return `  {\n${base}\n    default: ${control.default},\n  }`;
+    case 'randomizer':
+      return `  {\n${base}\n    default: '${esc(control.default)}',\n  }`;
     case 'point2d':
     case 'vector':
       return `  {\n${base}\n    default: { x: ${control.default.x}, y: ${control.default.y} },\n  }`;
@@ -269,14 +271,18 @@ export function generateControlsBlock(
 
 /**
  * Serialize the `const { ... } = values;` line that opens draw(), making
- * every control value available as a local. Empty string when there are
- * no controls.
+ * every control value available as a local. Randomizers are left out:
+ * their phrase only drives the panel, and an unused local would fail
+ * noUnusedLocals. Empty string when nothing is left to destructure.
  */
 export function generateValuesDestructure(
   controls: readonly ControlDefinition[]
 ): string {
-  if (controls.length === 0) return '';
-  return `const { ${controls.map((c) => c.id).join(', ')} } = values;`;
+  const ids = controls
+    .filter((c) => c.type !== 'randomizer')
+    .map((c) => c.id);
+  if (ids.length === 0) return '';
+  return `const { ${ids.join(', ')} } = values;`;
 }
 
 /** A minimal text edit: replace [from, to) with insert. */

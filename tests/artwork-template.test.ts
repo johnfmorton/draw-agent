@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { generateControlsBlock } from '../src/artwork-template';
+import {
+  generateControlsBlock,
+  generateValuesDestructure,
+} from '../src/artwork-template';
 import type { ControlDefinition } from '../src/controls/schema';
 
 describe('generateControlsBlock', () => {
@@ -39,5 +42,37 @@ describe('generateControlsBlock', () => {
     expect(generateControlsBlock(controls)).toContain(
       "group: 'Artist\\'s Grid',"
     );
+  });
+});
+
+describe('randomizer controls', () => {
+  const randomizer: ControlDefinition = {
+    type: 'randomizer',
+    id: 'gridRoll',
+    label: 'Randomize Grid',
+    group: 'Grid',
+    default: "it's-cold-01",
+  };
+  const slider: ControlDefinition = {
+    type: 'slider',
+    id: 'gridRows',
+    label: 'Rows',
+    group: 'Grid',
+    min: 1,
+    max: 40,
+    default: 12,
+  };
+
+  it('serializes the phrase as an escaped string default', () => {
+    const code = generateControlsBlock([randomizer]);
+    expect(code).toContain("type: 'randomizer'");
+    expect(code).toContain("default: 'it\\'s-cold-01'");
+  });
+
+  it('keeps the phrase out of the values destructure', () => {
+    expect(generateValuesDestructure([slider, randomizer])).toBe(
+      'const { gridRows } = values;'
+    );
+    expect(generateValuesDestructure([randomizer])).toBe('');
   });
 });

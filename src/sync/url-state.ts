@@ -126,6 +126,9 @@ function parseValue(raw: string, control: ControlDefinition): unknown {
     case 'dropdown':
       return control.options.some((o) => o.value === raw) ? raw : undefined;
 
+    case 'randomizer':
+      return raw;
+
     case 'point2d':
     case 'vector': {
       const [x, y] = raw.split(',').map(Number);
@@ -165,6 +168,7 @@ function encodeValue(value: unknown, control: ControlDefinition): string {
       return value ? 'true' : 'false';
 
     case 'dropdown':
+    case 'randomizer':
       return String(value);
 
     case 'point2d':

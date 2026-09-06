@@ -198,6 +198,7 @@ mode, a label, and the two export optimisation checkboxes.
 | `toggle` | `boolean` | Toggle switch |
 | `dropdown` | Literal union | Select element |
 | `seed` | `number` | Number input + 🎲 randomize button |
+| `randomizer` | `string` | Phrase input + 🎲; re-rolls every other control in its group |
 | `point2d` | `{x, y}` | Two inputs + optional XY pad |
 | `vector` | `{x, y}` | Two inputs, represents direction/magnitude |
 | `rectangle` | `{x, y, width, height}` | Four inputs |
@@ -235,6 +236,32 @@ export const controls = [
   is dragged out lives on as an empty folder
 - Grouping doesn't affect values or type inference — `draw(values)` is
   flat either way
+
+### Group Randomizer
+
+A `randomizer` control is a phrase input with a 🎲 button that
+re-rolls every other control in its group (or every ungrouped control
+when it has no group) within each control's own limits:
+
+```typescript
+{ type: 'randomizer', id: 'gridRoll', label: 'Randomize Grid', group: 'Grid Controls', default: 'first-frost-01' },
+```
+
+- 🎲 fills in a new phrase (like `quiet-heron-27`); typing a phrase or a
+  number and pressing Enter works too, and Enter re-applies an unchanged
+  phrase, so a group tweaked by hand rolls back to the phrase's values
+- The roll is deterministic: the same schema and phrase always give the
+  same values (an integer phrase is used as the seed directly, anything
+  else is hashed). Sliders land on their step grid, dropdowns pick an
+  option, seeds get a fresh seed, points and rectangles stay inside
+  their bounds, vectors keep their magnitude limits (or their default
+  length), and a numeric input with a missing limit rolls within a band
+  as wide as its default on that side
+- The rolled values are ordinary values afterwards — the phrase is a
+  trigger and a record, not a live binding, so nothing re-rolls on
+  load, and other randomizers in the group are never rolled
+- `draw()` gets the phrase in `values` but the file sync leaves it out
+  of the destructure line (it has no use in the drawing)
 
 ### Value Synchronization Model
 

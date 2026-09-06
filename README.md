@@ -237,6 +237,7 @@ export function draw(values: Values, canvas: CanvasConfig): SVGElement {
 | `toggle` | On/off switch | `boolean` |
 | `dropdown` | Select from options | Union of option values |
 | `seed` | Number with randomize button | `number` |
+| `randomizer` | Phrase with 🎲 that re-rolls every other control in its group within their limits | `string` |
 | `point2d` | X/Y coordinates with optional pad | `{ x, y }` |
 | `vector` | Direction/magnitude | `{ x, y }` |
 | `rectangle` | Position and size | `{ x, y, width, height }` |

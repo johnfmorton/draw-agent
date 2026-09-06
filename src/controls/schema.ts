@@ -134,6 +134,18 @@ export type SeedControl = BaseControl<'seed'> & {
   default: number;
 };
 
+export type RandomizerControl = BaseControl<'randomizer'> & {
+  /**
+   * The phrase (or number) the group was last rolled from. Changing it
+   * — typing a new one, or the 🎲 button — re-rolls every other control
+   * that shares this control's group (every ungrouped control when it
+   * has none) within each one's limits. The rolled values are ordinary
+   * values from then on: the phrase is a trigger and a record, not a
+   * live binding, so nothing re-rolls on load.
+   */
+  default: string;
+};
+
 export type Point2DControl = BaseControl<'point2d'> & {
   default: Point2D;
   bounds?: { minX: number; maxX: number; minY: number; maxY: number };
@@ -155,6 +167,7 @@ export type ControlDefinition =
   | ToggleControl
   | DropdownControl
   | SeedControl
+  | RandomizerControl
   | Point2DControl
   | VectorControl
   | RectangleControl;
@@ -176,7 +189,9 @@ type InferControlValue<C> = C extends { type: 'slider' | 'numeric' | 'seed' }
         ? Point2D
         : C extends { type: 'rectangle' }
           ? Rectangle
-          : never;
+          : C extends { type: 'randomizer' }
+            ? string
+            : never;
 
 export type InferValues<Schema extends ControlSchema> = {
   [C in Schema[number] as C['id']]: InferControlValue<C>;
