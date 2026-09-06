@@ -87,6 +87,14 @@ export interface CursiveResponse {
   svg: string;
   width_mm: number;
   height_mm: number;
+  /**
+   * The x-height the lettering was set at, and every typeset line's
+   * nominal baseline measured down from the ink box's top edge (mm).
+   * Optional only because a server from before September 2026 omits
+   * them; see xHeightCenterMm() for the fallback.
+   */
+  x_height_mm?: number;
+  baselines_mm?: number[];
   warnings: string[];
   missing_letterforms: Array<{
     from: string;
@@ -232,6 +240,23 @@ export function withCursive(
   }
 }
 
+/**
+ * Distance (mm) from the ink box's top edge to the center of the first
+ * line's x-height band — the point to anchor a word on when it sits
+ * along a guide. The box's edges move with whatever ascenders and
+ * descenders the word happens to have, so box-centering "happy" and
+ * "peace" on the same line puts them a third of an x-height apart.
+ * Falls back to the box's center for a response without baselines.
+ */
+export function xHeightCenterMm(rendered: CursiveResponse): number {
+  const baseline = rendered.baselines_mm?.[0];
+  const xHeight = rendered.x_height_mm;
+  if (baseline === undefined || xHeight === undefined) {
+    return rendered.height_mm / 2;
+  }
+  return baseline - xHeight / 2;
+}
+
 export interface CursivePlacement {
   /** Canvas-px position of the ink box's top-left corner. */
   x: number;
@@ -245,11 +270,17 @@ export interface CursivePlacement {
    */
   penWidthMm?: number | undefined;
   /**
-   * Rotate the lettering this many degrees clockwise about the ink
-   * box's center. The x/y placement still positions the unrotated box;
-   * the rotation then tilts it in place.
+   * Rotate the lettering this many degrees clockwise about `pivot`, or
+   * the ink box's center. The x/y placement still positions the
+   * unrotated box; the rotation then tilts it in place.
    */
   rotateDeg?: number | undefined;
+  /**
+   * Canvas-px point to rotate about. A word anchored on its x-height
+   * center wants the rotation there too, or the tilt swings it off
+   * the guide.
+   */
+  pivot?: { x: number; y: number } | undefined;
 }
 
 /**
@@ -273,13 +304,11 @@ export function cursiveGroup(
   }
   const [minX, minY] = viewBox.split(/[\s,]+/).map(Number);
 
-  const { x, y, scale, penWidthMm, rotateDeg } = placement;
+  const { x, y, scale, penWidthMm, rotateDeg, pivot } = placement;
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  const rotate = rotateDeg
-    ? `rotate(${rotateDeg} ${x + (rendered.width_mm * scale) / 2} ${
-        y + (rendered.height_mm * scale) / 2
-      }) `
-    : '';
+  const pivotX = pivot?.x ?? x + (rendered.width_mm * scale) / 2;
+  const pivotY = pivot?.y ?? y + (rendered.height_mm * scale) / 2;
+  const rotate = rotateDeg ? `rotate(${rotateDeg} ${pivotX} ${pivotY}) ` : '';
   g.setAttribute(
     'transform',
     `${rotate}translate(${x} ${y}) scale(${scale}) translate(${-minX} ${-minY})`,
@@ -347,15 +376,20 @@ export interface PointPlacement {
   /** Anchor point in canvas px. */
   x: number;
   y: number;
-  /** Which point of the ink box lands on (x, y). Default 'center'. */
-  anchor?: 'center' | 'top-left';
+  /**
+   * Which point of the lettering lands on (x, y). Default 'center' (of
+   * the ink box). 'x-height' centers horizontally and puts the center
+   * of the first line's x-height band on y — the anchor for words set
+   * along a guide (see xHeightCenterMm) — and rotates about that point.
+   */
+  anchor?: 'center' | 'top-left' | 'x-height';
   /** Scale so the ink box is this many canvas px tall... */
   heightPx?: number;
   /** ...or this many wide. Omit both for true physical size. */
   widthPx?: number;
   /** See CursivePlacement.penWidthMm. */
   penWidthMm?: number;
-  /** Degrees clockwise about the ink box's center. */
+  /** Degrees clockwise about the anchor point. */
   rotateDeg?: number;
 }
 
@@ -380,11 +414,18 @@ export function cursiveAt(
     const h = rendered.height_mm * scale;
     const anchor = placement.anchor ?? 'center';
     const g = cursiveGroup(rendered, {
-      x: anchor === 'center' ? placement.x - w / 2 : placement.x,
-      y: anchor === 'center' ? placement.y - h / 2 : placement.y,
+      x: anchor === 'top-left' ? placement.x : placement.x - w / 2,
+      y:
+        anchor === 'top-left'
+          ? placement.y
+          : anchor === 'x-height'
+            ? placement.y - xHeightCenterMm(rendered) * scale
+            : placement.y - h / 2,
       scale,
       penWidthMm: placement.penWidthMm,
       rotateDeg: placement.rotateDeg,
+      pivot:
+        anchor === 'x-height' ? { x: placement.x, y: placement.y } : undefined,
     });
     if (g) svg.appendChild(g);
   });

@@ -52,6 +52,7 @@ import {
   cursiveGroup,
   fetchCursive,
   MM_TO_PX,
+  xHeightCenterMm,
 } from '../src/secondhand-cursive';
 import type {
   CursiveOptions,
@@ -1267,14 +1268,18 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
             if (placed++ >= MAX_WORDS) break;
             const rendered = hands[slot.hand];
             const scale = slot.widthPx / rendered.width_mm;
-            const h = rendered.height_mm * scale;
             const center = place(slot.center, armAngle);
+            // Anchor each word on the center of its x-height band, not of
+            // its ink box: the box grows with whatever ascenders and
+            // descenders the word has, which put "happy" and "peace" at
+            // different heights on the same arm.
             const g = cursiveGroup(rendered, {
               x: center.x - slot.widthPx / 2,
-              y: center.y - h / 2,
+              y: center.y - xHeightCenterMm(rendered) * scale,
               scale,
               penWidthMm: penWidth,
               rotateDeg: (slot.angle + armAngle) / DEG,
+              pivot: center,
             });
             if (g) svg.appendChild(g);
           }

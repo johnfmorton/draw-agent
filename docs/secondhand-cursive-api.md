@@ -82,6 +82,8 @@ plot pen.
   "svg": "<svg …>…</svg>",
   "width_mm": 61.482,
   "height_mm": 14.907,
+  "x_height_mm": 4,
+  "baselines_mm": [9.212],
   "warnings": ["…"],
   "missing_letterforms": [
     { "from": "o", "to": "z", "position": 4, "scope": "join", "count": 1 }
@@ -98,6 +100,14 @@ plot pen.
   paths out, wrap them in a `<g transform="translate(-minX, -minY)">`
   using the viewBox origin. All coordinates are in millimeters, so it
   drops straight into Draw Agent's physical-unit canvases.
+- `x_height_mm` is the x-height the lettering was set at and
+  `baselines_mm` every typeset line's nominal baseline (one per line,
+  before the humanization drift), measured down from the SVG's top
+  edge. The ink box's edges move with whatever ascenders and descenders
+  the text has, so words set along a guide should be anchored on the
+  baseline or the x-height band (its center is `baseline − x_height /
+  2`) rather than box-centered — `xHeightCenterMm()` and
+  `anchor: 'x-height'` in `src/secondhand-cursive.ts` do exactly that.
 - `warnings` are the typesetter's diagnostics, verbatim.
 - `missing_letterforms` reports transitions the font has no letterform
   or join for (`scope` tells you which). The render still succeeds —
@@ -154,6 +164,8 @@ export interface RenderResponse {
   svg: string;
   width_mm: number;
   height_mm: number;
+  x_height_mm: number;
+  baselines_mm: number[];       // per line, mm from the top edge
   warnings: string[];
   missing_letterforms: Array<{
     from: string; to: string; position: number; scope: string; count: number;
