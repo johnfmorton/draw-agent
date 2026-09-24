@@ -434,7 +434,7 @@ export type Values = InferValues<typeof controls>;
  * one letter size and a phrase simply runs longer along its branch; off,
  * each is squeezed into an equal slot.
  */
-const WORDS = ['happy', '2027', 'peace'];
+const WORDS = ['happy', '2027', 'from John & Andrew & Dotty'];
 const DEG = Math.PI / 180;
 /** x-height every hand is requested at, in mm; the layout scales from there. */
 const X_HEIGHT_MM = 4;
