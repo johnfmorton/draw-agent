@@ -80,6 +80,17 @@ export const controls = [
     default: 1258878846,
   },
   {
+    type: 'slider',
+    id: 'lineWidth',
+    label: 'Pen Width',
+    description:
+      "The plot pen's line on paper, in mm, so the preview shows real weight",
+    min: 0.3,
+    max: 5,
+    step: 0.1,
+    default: 0.3,
+  },
+  {
     type: 'toggle',
     id: 'redInk',
     label: 'Show red ink',
@@ -112,6 +123,18 @@ export const controls = [
     label: 'Line Offset',
     description:
       'Slide the red lines sideways across their direction, as a share of the space between lines, to move where they cross or overlap the other ink. The pattern repeats every whole line, so ±0.5 reaches every position',
+    group: 'Red Ink',
+    min: -0.5,
+    max: 0.5,
+    step: 0.01,
+    default: 0,
+  },
+  {
+    type: 'slider',
+    id: 'redWordOffset',
+    label: 'Word Offset',
+    description:
+      'Slide the red words along their lines, as a share of one word. In Run On the pattern repeats every whole word, so ±0.5 reaches every position; in Whole Words it moves them from the start of the line (-0.5) through centered (0) to its end (0.5)',
     group: 'Red Ink',
     min: -0.5,
     max: 0.5,
@@ -237,6 +260,18 @@ export const controls = [
     default: 0,
   },
   {
+    type: 'slider',
+    id: 'blueWordOffset',
+    label: 'Word Offset',
+    description:
+      'Slide the blue words along their lines, as a share of one word. In Run On the pattern repeats every whole word, so ±0.5 reaches every position; in Whole Words it moves them from the start of the line (-0.5) through centered (0) to its end (0.5)',
+    group: 'Blue Ink',
+    min: -0.5,
+    max: 0.5,
+    step: 0.01,
+    default: 0,
+  },
+  {
     type: 'dropdown',
     id: 'blueLayout',
     label: 'Word Layout',
@@ -322,8 +357,6 @@ export type Values = InferValues<typeof controls>;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const RED_INK = '#c8102e';
 const BLUE_INK = '#1d4ea0';
-/** The plot pen's line on paper, so the preview shows real weight. */
-const PEN_WIDTH_MM = 0.3;
 /** The API's text limit; each layer's word repeats up to it. */
 const MAX_TEXT_CHARS = 200;
 
@@ -414,12 +447,18 @@ interface Word {
 const wordsCache = new WeakMap<CursiveResponse, Word[]>();
 
 /**
- * Split a rendered line of `wordCount` words into its words. The
- * strokes are merged into runs wherever they overlap across x (an i's
- * dot or a t's cross joins its letter's run); the spaces are then the
- * widest gaps between runs — wider than any pen lift inside a word.
+ * Split a rendered line of `wordCount` repetitions of a phrase of
+ * `phraseWords` words into its repetitions. The strokes are merged into
+ * runs wherever they overlap across x (an i's dot or a t's cross joins
+ * its letter's run); the spaces are then the widest gaps between runs —
+ * wider than any pen lift inside a word — and every `phraseWords` words
+ * between them make one repetition.
  */
-function lineWords(rendered: CursiveResponse, wordCount: number): Word[] {
+function lineWords(
+  rendered: CursiveResponse,
+  wordCount: number,
+  phraseWords: number,
+): Word[] {
   const cached = wordsCache.get(rendered);
   if (cached) return cached;
 
@@ -469,13 +508,15 @@ function lineWords(rendered: CursiveResponse, wordCount: number): Word[] {
       .slice(1)
       .map((run, i) => ({ i: i + 1, gap: run.left - runs[i].right }))
       .sort((a, b) => b.gap - a.gap)
-      .slice(0, wordCount - 1)
+      .slice(0, wordCount * phraseWords - 1)
       .map(({ i }) => i),
   );
   const words: Word[] = [];
+  let spaces = 0;
   runs.forEach((run, i) => {
     const word = words[words.length - 1];
-    if (word && !breaks.has(i)) {
+    const phraseEnds = breaks.has(i) && ++spaces % phraseWords === 0;
+    if (word && !phraseEnds) {
       word.right = run.right;
       word.strokes.push(...run.strokes);
     } else {
@@ -494,9 +535,10 @@ function lineWords(rendered: CursiveResponse, wordCount: number): Word[] {
  * its normal there. Long straight strokes are subdivided so they bend
  * too.
  *
- * 'fit' writes as many whole words as fit, centered. 'fill' starts the
- * run `shift` of a word (0-1) before x0 and keeps writing past x1, so
- * the row reads as running on across the card. Either way the ink is
+ * 'fit' writes as many whole words as fit, placed in the room left over
+ * by `wordOffset` (-0.5 to 0.5, flush start to flush end). 'fill'
+ * starts the run `shift - wordOffset` of a word before x0 and keeps
+ * writing past x1, so the row reads as running on across the card. Either way the ink is
  * taken from the layer's frame to the canvas by `toCanvas` and clipped
  * to `clip`, the paper inside the border.
  */
@@ -508,6 +550,7 @@ function wordsAlongRule(
   scale: number,
   layout: 'fit' | 'fill',
   shift: number,
+  wordOffset: number,
   clip: Bounds,
   toCanvas: (p: Pt) => Pt,
 ): string {
@@ -522,11 +565,17 @@ function wordsAlongRule(
   if (layout === 'fit') {
     while (count < words.length && reach(count + 1) <= available) count++;
     if (count === 0) return '';
-    start = (available - reach(count)) / 2 - first.left * scale;
+    // -0.5 flush with the line's start, 0 centered, 0.5 flush with its end.
+    start =
+      (available - reach(count)) * (0.5 + wordOffset) - first.left * scale;
   } else {
     const period =
       words.length > 1 ? (words[1].left - first.left) * scale : reach(1);
-    start = -shift * period - first.left * scale;
+    // The second word takes the line's starting point, so the first is
+    // always a word back to fill in when the offset slides the run
+    // forward, and sliding never swaps which repetition sits where.
+    const anchor = words[Math.min(1, words.length - 1)];
+    start = (wordOffset - shift) * period - anchor.left * scale;
     while (
       count < words.length &&
       start + words[count].left * scale < available
@@ -684,6 +733,8 @@ interface InkSettings {
   lineCount: number;
   /** Slide the lines across by this share of the line spacing. */
   lineOffset: number;
+  /** Slide the words along their lines (see wordsAlongRule). */
+  wordOffset: number;
   waveHeight: number;
   waves: number;
   letterSize: number;
@@ -804,7 +855,10 @@ function drawInk(
     }
   }
 
-  const word = settings.text.trim().slice(0, MAX_TEXT_CHARS);
+  const word = settings.text
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, MAX_TEXT_CHARS);
   if (!word) return;
   const wordCount = Math.max(
     1,
@@ -835,7 +889,7 @@ function drawInk(
     const [x0, x1] = span;
 
     withCursive(svg, { text, seed: settings.handSeed + i }, (rendered) => {
-      const words = lineWords(rendered, wordCount);
+      const words = lineWords(rendered, wordCount, word.split(' ').length);
       if (words.length === 0) return;
       const scale =
         xHeightPx / (rendered.x_height_mm ?? rendered.height_mm * 0.4);
@@ -847,6 +901,7 @@ function drawInk(
         scale,
         settings.layout,
         shifts[i],
+        settings.wordOffset,
         clip,
         frame.toCanvas,
       );
@@ -861,8 +916,12 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     borderMode,
     borderInset,
     seed,
+    lineWidth,
     redInk,
     redText,
+    redRotation,
+    redLineOffset,
+    redWordOffset,
     redLayout,
     redRules,
     redLineCount,
@@ -870,18 +929,17 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     redWaves,
     redLetterSize,
     redHandSeed,
-    redRotation,
-    redLineOffset,
     showBlueInk,
     blueInk,
+    blueRotation,
+    blueLineOffset,
+    blueWordOffset,
     blueLayout,
     blueRules,
     blueLineCount,
     blueWaveHeight,
     blueWaves,
     blueLetterSize,
-    blueRotation,
-    blueLineOffset,
     blueHandSeed,
   } = values;
 
@@ -903,7 +961,9 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     width: width - 2 * inset,
     height: height - 2 * inset,
   };
-  const penWidthPx = PEN_WIDTH_MM * MM_TO_PX;
+  // Pen Width is the plot pen's line on paper in mm, so the preview
+  // shows real weight.
+  const penWidthPx = lineWidth * MM_TO_PX;
 
   // --- Ink layers: wavy notebook rules, a word written along each ---
   const red: InkSettings = {
@@ -914,6 +974,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showRules: redRules,
     lineCount: redLineCount,
     lineOffset: redLineOffset,
+    wordOffset: redWordOffset,
     waveHeight: redWaveHeight,
     waves: redWaves,
     letterSize: redLetterSize,
@@ -928,6 +989,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     showRules: blueRules,
     lineCount: blueLineCount,
     lineOffset: blueLineOffset,
+    wordOffset: blueWordOffset,
     waveHeight: blueWaveHeight,
     waves: blueWaves,
     letterSize: blueLetterSize,
