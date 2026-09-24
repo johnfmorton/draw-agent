@@ -259,6 +259,18 @@
   min-width: 520px;
 }
 
+/* Width and height share the row; the unit select stays compact
+   instead of claiming the whole row via .dialog-field select's 100% */
+.wizard-size-row input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.wizard-size-row select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .wizard-step-indicator {
   margin: -12px 0 16px 0;
   font-size: 12px;

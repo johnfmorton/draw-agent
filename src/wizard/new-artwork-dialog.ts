@@ -250,7 +250,7 @@ export function openNewArtworkDialog(
         </div>
         <div class="dialog-field">
           <label>Size</label>
-          <div class="dialog-field-row">
+          <div class="dialog-field-row wizard-size-row">
             <input type="number" id="wiz-width" min="0" step="any" title="Width" />
             <input type="number" id="wiz-height" min="0" step="any" title="Height" />
             <select id="wiz-unit" title="Unit">
