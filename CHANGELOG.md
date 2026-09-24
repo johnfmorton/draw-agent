@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `snow-cursive-study-5` artwork (part five): study 4 with a greeting line written across the card. A Greeting group sets the file's `GREETING` phrase in Secondhand Cursive along the top or bottom edge (Off / Top / Bottom), spanning a chosen share of the paper's width inside the border (Greeting Width, capped so the band never takes more than half the height), with a Greeting Gap between the letters and the border on one side and the snowflake's area on the other, and a Greeting Seed that rolls the greeting's hand alone (one API call per seed). The greeting takes a band off its edge, so the main snowflake is centered in the paper left over and sized to it (Arm Length is now a fraction of that area's shorter side), and the field keeps clear of the letters as it does the flake: the Outline clearance shape adds the greeting's strokes to the keep-out zone, so small flakes settle between the letters' ascenders and descenders, and the Circle shape adds a rounded box around the greeting. The greeting is always cursive, whatever Render says; with the greeting off the composition is study 4's exactly
+
 ### Fixed
 
 - The New Artwork dialog's paper-size step squeezed the width and height inputs to a sliver, so typed values were invisible; the unit dropdown no longer takes the whole row
