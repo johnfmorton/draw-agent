@@ -247,6 +247,12 @@ function controlToTypeScript(control: ControlDefinition): string {
       return `  {\n${base}\n    default: ${control.default},\n  }`;
     case 'randomizer':
       return `  {\n${base}\n    default: '${esc(control.default)}',\n  }`;
+    case 'text': {
+      const placeholder = control.placeholder
+        ? `\n    placeholder: '${esc(control.placeholder)}',`
+        : '';
+      return `  {\n${base}${placeholder}\n    default: '${esc(control.default)}',\n  }`;
+    }
     case 'point2d':
     case 'vector':
       return `  {\n${base}\n    default: { x: ${control.default.x}, y: ${control.default.y} },\n  }`;

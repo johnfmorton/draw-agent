@@ -39,7 +39,8 @@ export function phraseToSeed(phrase: string): number {
 /**
  * The controls a randomizer rolls: those sharing its group, or the
  * ungrouped controls when it has no group. Other randomizers are never
- * rolled, so two in one group stay independent.
+ * rolled, so two in one group stay independent, and text is left as
+ * typed — there's no range to roll it within.
  */
 export function randomizerTargets(
   controls: readonly ControlDefinition[],
@@ -49,6 +50,7 @@ export function randomizerTargets(
     (c) =>
       c.id !== randomizer.id &&
       c.type !== 'randomizer' &&
+      c.type !== 'text' &&
       (c.group ?? null) === (randomizer.group ?? null),
   );
 }
@@ -222,6 +224,7 @@ export function rollControl(
     }
 
     case 'randomizer':
+    case 'text':
       return control.default;
   }
 }

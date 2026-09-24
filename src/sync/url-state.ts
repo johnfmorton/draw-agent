@@ -127,6 +127,7 @@ function parseValue(raw: string, control: ControlDefinition): unknown {
       return control.options.some((o) => o.value === raw) ? raw : undefined;
 
     case 'randomizer':
+    case 'text':
       return raw;
 
     case 'point2d':
@@ -169,6 +170,7 @@ function encodeValue(value: unknown, control: ControlDefinition): string {
 
     case 'dropdown':
     case 'randomizer':
+    case 'text':
       return String(value);
 
     case 'point2d':

@@ -7,6 +7,7 @@ import type {
   DropdownControl,
   SeedControl,
   RandomizerControl,
+  TextControl,
   Point2DControl,
   VectorControl,
   RectangleControl,
@@ -61,6 +62,7 @@ const CONTROL_TYPES: { value: ControlType; label: string }[] = [
   { value: 'dropdown', label: 'Dropdown' },
   { value: 'seed', label: 'Seed / Randomize' },
   { value: 'randomizer', label: 'Group Randomizer' },
+  { value: 'text', label: 'Text' },
   { value: 'point2d', label: '2D Point' },
   { value: 'vector', label: 'Vector' },
   { value: 'rectangle', label: 'Rectangle' },
@@ -430,6 +432,20 @@ function getTypeFieldsHtml(type: ControlType, existing?: ControlDefinition): str
       `;
     }
 
+    case 'text': {
+      const ctrl = existing as TextControl | undefined;
+      return `
+        <div class="dialog-field">
+          <label>Default Text</label>
+          <input type="text" id="field-default" value="${escapeHtml(ctrl?.default ?? '')}">
+        </div>
+        <div class="dialog-field">
+          <label>Placeholder <span class="dialog-hint">(optional, shown when empty)</span></label>
+          <input type="text" id="field-placeholder" value="${escapeHtml(ctrl?.placeholder ?? '')}">
+        </div>
+      `;
+    }
+
     case 'point2d': {
       const ctrl = existing as Point2DControl | undefined;
       return `
@@ -610,6 +626,14 @@ function buildControlFromDialog(dialog: HTMLElement): ControlDefinition | null {
     case 'randomizer': {
       const phrase = (dialog.querySelector('#field-default') as HTMLInputElement).value.trim();
       return { type: 'randomizer', ...base, default: phrase || randomPhrase() } as RandomizerControl;
+    }
+
+    case 'text': {
+      const defaultVal = (dialog.querySelector('#field-default') as HTMLInputElement).value;
+      const placeholder = (dialog.querySelector('#field-placeholder') as HTMLInputElement).value.trim();
+      const result: TextControl = { type: 'text', ...base, default: defaultVal };
+      if (placeholder) result.placeholder = placeholder;
+      return result;
     }
 
     case 'point2d': {

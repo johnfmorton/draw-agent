@@ -146,6 +146,11 @@ export type RandomizerControl = BaseControl<'randomizer'> & {
   default: string;
 };
 
+export type TextControl = BaseControl<'text'> & {
+  default: string;
+  placeholder?: string;
+};
+
 export type Point2DControl = BaseControl<'point2d'> & {
   default: Point2D;
   bounds?: { minX: number; maxX: number; minY: number; maxY: number };
@@ -168,6 +173,7 @@ export type ControlDefinition =
   | DropdownControl
   | SeedControl
   | RandomizerControl
+  | TextControl
   | Point2DControl
   | VectorControl
   | RectangleControl;
@@ -189,7 +195,7 @@ type InferControlValue<C> = C extends { type: 'slider' | 'numeric' | 'seed' }
         ? Point2D
         : C extends { type: 'rectangle' }
           ? Rectangle
-          : C extends { type: 'randomizer' }
+          : C extends { type: 'randomizer' | 'text' }
             ? string
             : never;
 

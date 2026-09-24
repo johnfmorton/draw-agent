@@ -428,6 +428,27 @@
   line-height: 1;
 }
 
+/* Text Control */
+.control-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.control-text input {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.control-text input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* Numeric Control */
 .control-numeric {
   flex: 1;

@@ -199,6 +199,7 @@ mode, a label, and the two export optimisation checkboxes.
 | `dropdown` | Literal union | Select element |
 | `seed` | `number` | Number input + 🎲 randomize button |
 | `randomizer` | `string` | Phrase input + 🎲; re-rolls every other control in its group |
+| `text` | `string` | Single-line text input (applied on blur/Enter); optional `placeholder` |
 | `point2d` | `{x, y}` | Two inputs + optional XY pad |
 | `vector` | `{x, y}` | Two inputs, represents direction/magnitude |
 | `rectangle` | `{x, y, width, height}` | Four inputs |
@@ -371,6 +372,7 @@ type InferControlValue<C> =
   C extends { type: 'dropdown'; options: readonly { value: infer V }[] } ? V :
   C extends { type: 'point2d' | 'vector' } ? { x: number; y: number } :
   C extends { type: 'rectangle' } ? { x: number; y: number; width: number; height: number } :
+  C extends { type: 'randomizer' | 'text' } ? string :
   never;
 
 type InferValues<Schema extends ControlSchema> = {
