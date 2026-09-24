@@ -252,7 +252,18 @@ async function selectArtwork(path: string) {
     void editorPane.setArtwork(artworkName);
   } catch (e) {
     console.error('Failed to load artwork:', e);
-    showLoadError(path);
+    showLoadError(path, e);
+
+    // A broken file (syntax or runtime error at import) still exists on
+    // disk: open it in the editor so it can be fixed in place, and point
+    // the URL at it so the HMR re-run after a save retries this artwork.
+    const artworkName = getArtworkName(path);
+    if (getAvailableArtworks().some((a) => a.path === path)) {
+      cancelPendingUrlUpdate();
+      updateUrl(`#artwork=${encodeURIComponent(artworkName)}`);
+      setLastArtwork(artworkName);
+      void editorPane.setArtwork(artworkName);
+    }
   }
 }
 
@@ -296,8 +307,9 @@ async function handleNewArtwork() {
 /**
  * Show an error state with recovery options when artwork loading fails.
  */
-function showLoadError(failedPath: string) {
+function showLoadError(failedPath: string, error: unknown) {
   const failedName = getArtworkName(failedPath);
+  const exists = getAvailableArtworks().some((a) => a.path === failedPath);
   const artworks = getAvailableArtworks().filter((a) => a.path !== failedPath);
 
   // Build error UI
@@ -311,7 +323,9 @@ function showLoadError(failedPath: string) {
 
   const errorDetail = document.createElement('p');
   errorDetail.className = 'error-detail';
-  errorDetail.textContent = 'The file may have been moved or deleted.';
+  errorDetail.textContent = exists
+    ? `${error instanceof Error ? error.message : String(error)} — fix it in the editor and save to reload.`
+    : 'The file may have been moved or deleted.';
   errorContainer.appendChild(errorDetail);
 
   const actions = document.createElement('div');
