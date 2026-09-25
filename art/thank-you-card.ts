@@ -29,8 +29,6 @@ import {
   type Pt,
 } from '../src/path-geometry';
 
-import { spline } from '@johnfmorton/generative-utils';
-
 export const meta = {
   title: 'Thank You Card',
   description: '4.875 x 3.375',
@@ -168,12 +166,24 @@ export const controls = [
     id: 'redLineCount',
     label: 'Lines',
     description:
-      'How many ruled lines fill the paper inside the border, evenly spaced',
+      "Sets the base spacing and letter scale: at Line Spacing 1, this many ruled lines fill the paper's height inside the border. Letter Size is a share of this spacing, so more lines means smaller letters",
     group: 'Red Ink',
     min: 2,
     max: 14,
     step: 1,
     default: 6,
+  },
+  {
+    type: 'slider',
+    id: 'redLineSpacing',
+    label: 'Line Spacing',
+    description:
+      'Space between the red lines as a multiple of the spacing Lines gives. The letters keep their size, and lines are added or dropped to cover the paper',
+    group: 'Red Ink',
+    min: 0.5,
+    max: 2,
+    step: 0.05,
+    default: 1,
   },
   {
     type: 'slider',
@@ -298,12 +308,24 @@ export const controls = [
     id: 'blueLineCount',
     label: 'Lines',
     description:
-      "How many ruled lines fit the paper's height inside the border. Turned lines keep the same spacing, adding lines to cover the corners",
+      "Sets the base spacing and letter scale: at Line Spacing 1, this many ruled lines fit the paper's height inside the border. Letter Size is a share of this spacing, so more lines means smaller letters. Turned lines keep the same spacing, adding lines to cover the corners",
     group: 'Blue Ink',
     min: 2,
     max: 14,
     step: 1,
     default: 6,
+  },
+  {
+    type: 'slider',
+    id: 'blueLineSpacing',
+    label: 'Line Spacing',
+    description:
+      'Space between the blue lines as a multiple of the spacing Lines gives. The letters keep their size, and lines are added or dropped to cover the paper',
+    group: 'Blue Ink',
+    min: 0.5,
+    max: 2,
+    step: 0.05,
+    default: 1,
   },
   {
     type: 'slider',
@@ -731,6 +753,8 @@ interface InkSettings {
   layout: 'fit' | 'fill';
   showRules: boolean;
   lineCount: number;
+  /** Gap between lines as a multiple of the spacing lineCount gives. */
+  lineSpacing: number;
   /** Slide the lines across by this share of the line spacing. */
   lineOffset: number;
   /** Slide the words along their lines (see wordsAlongRule). */
@@ -745,6 +769,9 @@ interface InkSettings {
 /** A layer's rules and each Run On line's starting point in the word. */
 interface RolledInk {
   frame: Frame;
+  /** The spacing Lines gives, which the letters are sized from. */
+  baseSpacing: number;
+  /** The gap between rules: baseSpacing times Line Spacing. */
   lineSpacing: number;
   rules: Rule[];
   baseYs: number[];
@@ -763,7 +790,8 @@ const RULE_DROP = 0.72;
  */
 function rollInk(inner: Rect, settings: InkSettings): RolledInk {
   const frame = makeFrame(inner, settings.rotationDeg);
-  const lineSpacing = inner.height / settings.lineCount;
+  const baseSpacing = inner.height / settings.lineCount;
+  const lineSpacing = baseSpacing * settings.lineSpacing;
   const count = Math.max(1, Math.ceil(frame.height / lineSpacing - 1e-6));
   const top = -(count * lineSpacing) / 2;
   const offset = settings.lineOffset;
@@ -795,7 +823,7 @@ function rollInk(inner: Rect, settings: InkSettings): RolledInk {
     rules.push(roll(baseY));
     shifts.push(random(0, 1));
   }
-  return { frame, lineSpacing, rules, baseYs, shifts };
+  return { frame, baseSpacing, lineSpacing, rules, baseYs, shifts };
 }
 
 /**
@@ -815,7 +843,7 @@ function drawInk(
   rolled: RolledInk,
   penWidthPx: number,
 ): void {
-  const { frame, lineSpacing, rules, baseYs, shifts } = rolled;
+  const { frame, baseSpacing, rules, baseYs, shifts } = rolled;
   const clip: Bounds = {
     minX: inner.x,
     minY: inner.y,
@@ -865,7 +893,7 @@ function drawInk(
     Math.floor((MAX_TEXT_CHARS + 1) / (word.length + 1)),
   );
   const text = Array(wordCount).fill(word).join(' ');
-  const xHeightPx = lineSpacing * settings.letterSize;
+  const xHeightPx = baseSpacing * settings.letterSize;
   const amplitude = settings.waveHeight;
 
   rules.forEach((rule, i) => {
@@ -878,8 +906,8 @@ function drawInk(
         ? chordSpan(frame.corners, baseY - xHeightPx, baseY, 'intersection')
         : chordSpan(
             frame.corners,
-            baseY - lineSpacing * RULE_DROP - amplitude,
-            baseY + lineSpacing * (1 - RULE_DROP) + amplitude,
+            baseY - baseSpacing * RULE_DROP - amplitude,
+            baseY + baseSpacing * (1 - RULE_DROP) + amplitude,
             'union',
           );
     if (span && settings.layout === 'fit') {
@@ -925,6 +953,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     redLayout,
     redRules,
     redLineCount,
+    redLineSpacing,
     redWaveHeight,
     redWaves,
     redLetterSize,
@@ -937,6 +966,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     blueLayout,
     blueRules,
     blueLineCount,
+    blueLineSpacing,
     blueWaveHeight,
     blueWaves,
     blueLetterSize,
@@ -973,6 +1003,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     layout: redLayout,
     showRules: redRules,
     lineCount: redLineCount,
+    lineSpacing: redLineSpacing,
     lineOffset: redLineOffset,
     wordOffset: redWordOffset,
     waveHeight: redWaveHeight,
@@ -988,6 +1019,7 @@ export function draw(values: Values, canvasConfig: CanvasConfig): SVGElement {
     layout: blueLayout,
     showRules: blueRules,
     lineCount: blueLineCount,
+    lineSpacing: blueLineSpacing,
     lineOffset: blueLineOffset,
     wordOffset: blueWordOffset,
     waveHeight: blueWaveHeight,
